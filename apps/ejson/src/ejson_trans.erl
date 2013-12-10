@@ -5,9 +5,9 @@
     ]).
 
 parse_transform(AstIn, _Options) ->
-    io:format("~p~n", [AstIn]),
+    %%io:format("~p~n", [AstIn]),
     Out = walk(AstIn),
-    io:format("~p~n", [Out]),
+    %%io:format("~p~n", [Out]),
     Out.
 
 walk(Ast) ->
