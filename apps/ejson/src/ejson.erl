@@ -56,6 +56,8 @@ conv(Tuple, Options) when is_tuple(Tuple) ->
     lists:map(
         fun({{list, Name}, Value}) ->
             {list_to_binary(Name), conv_list(Value, Options)};
+           ({{proplist, Name}, Value}) ->
+            {list_to_binary(Name), conv_proplist(Value, Options)};
            ({Name, Value}) ->
             {list_to_binary(Name), conv(Value, Options)}
         end,
@@ -64,8 +66,8 @@ conv(String, _) when is_list(String) ->
     list_to_binary(String);
 conv(Number, _) when is_integer(Number) ->
     list_to_binary(integer_to_list(Number));
-conv(Number, _) when is_float(Number) ->
-    list_to_binary(float_to_list(Number, [{decimals, 7}, compact]));
+%%conv(Number, _) when is_float(Number) ->
+%%    list_to_binary(float_to_list(Number, [{decimals, 7}, compact]));
 conv(undefined, _Name) ->
     null;
 conv(Bool, _) when is_boolean(Bool) ->
@@ -73,8 +75,41 @@ conv(Bool, _) when is_boolean(Bool) ->
 conv(Atom, _) when is_atom(Atom) ->
     atom_to_binary(Atom, latin1).
 
+
 conv_list(List, Options) ->
     [conv(L, Options) || L <- List].
+
+
+%%-----------------------------------------------------------------------------
+%% @doc
+%% Convert proplist to json object.
+%%
+%% It deals with [{prop_name, Value}, bool_prop, ...] lists. Iterates over
+%% each key, convert the atom key into camel-cased name. 
+%% @end
+%%-----------------------------------------------------------------------------
+conv_proplist(List, Options) ->
+    Keys = proplists:get_keys(List),
+    lists:map(
+        fun(Key) ->
+            case proplists:get_all_values(Key, List) of
+                [Value] ->
+                    {camel_case(Key), conv(Value, Options)};
+                Vals when length(Vals) > 1 ->
+                    {camel_case(Key), conv_list(Vals, Options)}
+            end
+        end,
+        Keys).
+
+camel_case(Atom) ->
+    list_to_binary(lists:reverse(camel_case(atom_to_list(Atom), []))).
+
+camel_case([], R) ->
+    R;
+camel_case([$_, L | T], R) ->
+    camel_case(T, [string:to_upper(L) | R]);
+camel_case([H | T], R) ->
+    camel_case(T, [H | R]).
 
 %%%============================================================================
 %%% Tests
@@ -82,11 +117,11 @@ conv_list(List, Options) ->
 
 -ifdef(TEST).
 
-number_json_test() ->
-    ?assertEqual(<<"1">>, conv(1, [])),
-    ?assertEqual(<<"-83">>, conv(-83, [])),
-    ?assertEqual(<<"1.2">>, conv(1.2, [])),
-    ?assertEqual(<<"0.07">>, conv(7.0e-2, [])).
+%%number_json_test() ->
+%%    ?assertEqual(<<"1">>, conv(1, [])),
+%%    ?assertEqual(<<"-83">>, conv(-83, [])),
+%%    ?assertEqual(<<"1.2">>, conv(1.2, [])),
+%%    ?assertEqual(<<"0.07">>, conv(7.0e-2, [])).
 
 atom_json_test() ->
     ?assertEqual(null, conv(undefined, [])),
@@ -123,5 +158,15 @@ record_list_test() ->
             [{<<"title">>, <<"TDD - the easy way">>},
              {<<"numberOfPages">>, <<"760">>}]
         ]}, Books).
+
+proplist_test() ->
+    Square = {shape, square, [{a, 10}]},
+    Circle = {shape, circle, [{radius, 5}]},
+    Rect = {shape, rect, [{x_left, 10}, {y_left, 15}, {x_right, 50}, {y_right, 30}]},
+
+    Options = [{shape, ["type", {proplist, "data"}]}],
+
+    ?debugVal(to_json(Rect, Options)).
+
 
 -endif.
