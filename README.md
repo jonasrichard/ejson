@@ -1,12 +1,10 @@
-ejson
-=====
+### ejson
 
-JSON library for Erlang on top of jsx
+JSON library for Erlang on top of `jsx`.
 
-Usage
------
+## Usage
 
-In order for ejson to take effect the source files need to be compiled with parse_transform ejson_trans. All record which has -json attribute will be converted to JSON.
+In order for ejson to take effect the source files need to be compiled with `parse_transform` `ejson_trans`. All record which has `-json` attribute will be converted to JSON.
 
 ```erlang
 -module(people).
@@ -29,3 +27,12 @@ start() ->
     io:format("~s~n", [to_json(Jim)]).
 ```
 
+### Using without parse transform
+
+If one doesn't want to use parse transform for any reason, it is still possible to use ejson but you need to pass the module atom in order that ejson can detect the `-json` attributes.
+
+```erlang
+handle_req(Id) ->
+    Rec = get_by_id(Id),
+    to_json_module(Rec, ?MODULE).
+```
