@@ -1,8 +1,8 @@
-### ejson
+## ejson
 
 JSON library for Erlang on top of `jsx`.
 
-## Usage
+### Usage
 
 In order for ejson to take effect the source files need to be compiled with `parse_transform` `ejson_trans`. All record which has `-json` attribute will be converted to JSON.
 
