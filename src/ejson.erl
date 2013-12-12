@@ -73,10 +73,10 @@ conv(Tuple, Options) when is_tuple(Tuple) ->
         lists:zip(FieldNames, Vals));
 conv(String, _) when is_list(String) ->
     list_to_binary(String);
-conv(Number, _) when is_integer(Number) ->
-    list_to_binary(integer_to_list(Number));
-%%conv(Number, _) when is_float(Number) ->
-%%    list_to_binary(float_to_list(Number, [{decimals, 7}, compact]));
+conv(Binary, _) when is_binary(Binary) ->
+    Binary;
+conv(Number, _) when is_number(Number) ->
+    Number;
 conv(undefined, _Name) ->
     null;
 conv(Bool, _) when is_boolean(Bool) ->
