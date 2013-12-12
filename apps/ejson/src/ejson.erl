@@ -1,7 +1,8 @@
 -module(ejson).
 
 -export([
-        to_json/2
+        to_json/2,
+        to_json_module/2
     ]).
 
 -ifdef(TEST).
@@ -14,6 +15,14 @@
 %%%============================================================================
 %%% External API functions
 %%%============================================================================
+
+to_json_module(Term, Module) ->
+    %% Get -json attributes from module info
+    Attrs = proplists:get_value(attributes, Module:module_info()),
+    Opts = lists:flatten([V || {json, V} <- Attrs]),
+
+    %% Call to_json with the Options we got
+    to_json(Term, Opts).
 
 %%-----------------------------------------------------------------------------
 %% @doc Convert Term to json with the Options passed.
