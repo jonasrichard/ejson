@@ -2,7 +2,9 @@
 
 -export([
         to_json/2,
-        to_json_module/2
+        to_json_module/2,
+        to_json_modules/2,
+        json_props/1
     ]).
 
 -ifdef(TEST).
@@ -16,13 +18,26 @@
 %%% External API functions
 %%%============================================================================
 
+to_json_modules(Term, ModuleList) ->
+    Opts = json_props(ModuleList),
+    
+    to_json(Term, Opts).
+
 to_json_module(Term, Module) ->
     %% Get -json attributes from module info
-    Attrs = proplists:get_value(attributes, Module:module_info()),
-    Opts = lists:flatten([V || {json, V} <- Attrs]),
+    Opts = json_props([Module]),
 
     %% Call to_json with the Options we got
     to_json(Term, Opts).
+
+json_props(ModuleList) ->
+    lists:foldl(
+        fun(Module, Acc) ->
+            Attrs = proplists:get_value(attributes, Module:module_info()),
+            Opts = lists:flatten([V || {json, V} <- Attrs]),
+
+            Opts ++ Acc
+        end, [], ModuleList).
 
 %%-----------------------------------------------------------------------------
 %% @doc Convert Term to json with the Options passed.
@@ -143,7 +158,7 @@ record_test() ->
     Options = [{person, ["name", "salary", "hasBooks"]}],
 
     ?assertEqual([{<<"name">>, <<"Joe">>},
-                  {<<"salary">>, <<"56000">>},
+                  {<<"salary">>, 56000},
                   {<<"hasBooks">>, true}],
                  conv(Rec, Options)).
 
@@ -163,9 +178,9 @@ record_list_test() ->
     ?assertEqual({<<"nickName">>, <<"Sam">>}, Pers),
     ?assertEqual({<<"books">>, [
             [{<<"title">>, <<"Introduction to clean coding">>},
-             {<<"numberOfPages">>, <<"251">>}],
+             {<<"numberOfPages">>, 251}],
             [{<<"title">>, <<"TDD - the easy way">>},
-             {<<"numberOfPages">>, <<"760">>}]
+             {<<"numberOfPages">>, 760}]
         ]}, Books).
 
 proplist_test() ->
