@@ -36,3 +36,17 @@ handle_req(Id) ->
     Rec = get_by_id(Id),
     to_json_module(Rec, ?MODULE).
 ```
+
+### Caching module attributes
+
+Sometimes you don't want to collect the module attributes and filter the json wild attributes for one thousand elements one by one. So there is a possibility to collect them manually and pass them to `to_json/2` function.
+
+```erlang
+convert_list(List) ->
+    Attrs = ejson:json_props([module1, module2]),
+    lists:map(
+        fun(Item) ->
+            ejson:to_json(Item, Attrs)
+        end,
+        List).
+```
