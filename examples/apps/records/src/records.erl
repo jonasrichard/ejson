@@ -1,11 +1,12 @@
 -module(records).
 
 -export([
-         start/0
+         start/0, sum_hours/1
         ]).
 
 -json({person, ["name", {list, "subjects"}, "creditPoints"]}).
--json({subject, ["name", {proplist, "meta"}, "credit"]}).
+-json({subject, ["name", {proplist, "meta"}, "credit",
+                 {pre, "sumHours", {records, sum_hours}}]}).
 
 start() ->
     S1 = {subject, "Maths", [{lecture, 2}, {lab, 3}, {essay, 2}], 5},
@@ -14,3 +15,5 @@ start() ->
     
     io:format("~s~n", [ejson:to_json_module(P, ?MODULE)]).
 
+sum_hours(_List) ->
+    0.
