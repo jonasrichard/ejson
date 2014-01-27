@@ -47,6 +47,9 @@ json_props(ModuleList) ->
 %%   - undefined, true, false to null, true, false respectively
 %%   - strings to binaries
 %%   - {list, FieldName} to list of json objects (calling conv)
+%%   - skip to skip attribute serialization
+%%   - {pre, FieldName, Fun} to pre-process data with Fun. Fun(Tuple) will be
+%%     called to convert a value, or create a new extra attribute.
 %%   - tuples (record representions) to list of name/value pair according
 %%     to the rules in the Options.
 %%
@@ -77,15 +80,22 @@ conv(Tuple, Options) when is_tuple(Tuple) ->
     FieldNames = proplists:get_value(RecName, Options),
 
     %% Convert each values
-    lists:map(
-        fun({{list, Name}, Value}) ->
-            {list_to_binary(Name), conv_list(Value, Options)};
-           ({{proplist, Name}, Value}) ->
-            {list_to_binary(Name), conv_proplist(Value, Options)};
-           ({Name, Value}) ->
-            {list_to_binary(Name), conv(Value, Options)}
-        end,
-        lists:zip(FieldNames, Vals));
+    lists:reverse(
+        lists:foldl(
+            fun({{list, Name}, Value}, Acc) ->
+                [{list_to_binary(Name), conv_list(Value, Options)} | Acc];
+               ({{proplist, Name}, Value}, Acc) ->
+                [{list_to_binary(Name), conv_proplist(Value, Options)} | Acc];
+               ({skip, _Value}, Acc) ->
+                Acc;
+               ({{pre, Name, {Mod, Fun}}, _Value}, Acc) ->
+                Value = erlang:apply(Mod, Fun, [Tuple]),
+                [{list_to_binary(Name), conv(Value, Options)} | Acc];
+               ({Name, Value}, Acc) ->
+                [{list_to_binary(Name), conv(Value, Options)} | Acc]
+            end,
+            [],
+            zip(FieldNames, Vals)));
 conv(String, _) when is_list(String) ->
     list_to_binary(String);
 conv(Binary, _) when is_binary(Binary) ->
@@ -136,6 +146,16 @@ camel_case([$_, L | T], R) ->
     camel_case(T, [string:to_upper(L) | R]);
 camel_case([H | T], R) ->
     camel_case(T, [H | R]).
+
+zip([], []) ->
+    [];
+zip([H1|T1], []) ->
+    [{H1, undefined} | zip(T1, [])];
+zip([], [H2|T2]) ->
+    [{undefined, H2} | zip([], T2)];
+zip([H1|T1], [H2|T2]) ->
+    [{H1, H2} | zip(T1, T2)].
+
 
 %%%============================================================================
 %%% Tests
@@ -188,7 +208,8 @@ record_list_test() ->
 proplist_test() ->
     Square = {shape, square, [{a, 10}]},
     Circle = {shape, circle, [{radius, 5}]},
-    Rect = {shape, rect, [{x_left, 10}, {y_left, 15}, {x_right, 50}, {y_right, 30}]},
+    Rect = {shape, rect, [{x_left, 10}, {y_left, 15},
+                          {x_right, 50}, {y_right, 30}]},
 
     Options = [{shape, ["type", {proplist, "data"}]}],
 
@@ -202,5 +223,23 @@ pid_test() ->
 
     Self = list_to_binary(pid_to_list(self())),
     ?assertEqual({<<"pid">>, Self}, hd(C)).
+
+skip_test() ->
+    Req = {request, self(), socket, "Message"},
+    Options = [{request, [skip, skip, "message"]}],
+
+    C = conv(Req, Options),
+    ?assertEqual({<<"message">>, <<"Message">>}, hd(C)).
+
+fun_test() ->
+    Area = fun({square, Side}) ->
+                   Side * Side
+           end,
+    Square = {square, 5},
+    Options = [{square, ["side", {pre, "area", Area}]}],
+
+    C = conv(Square, Options),
+    ?assertEqual(proplists:get_value(<<"side">>, C), 5),
+    ?assertEqual(proplists:get_value(<<"area">>, C), 25).
 
 -endif.
