@@ -97,7 +97,9 @@ conv(undefined, _Name) ->
 conv(Bool, _) when is_boolean(Bool) ->
     Bool;
 conv(Atom, _) when is_atom(Atom) ->
-    atom_to_binary(Atom, latin1).
+    atom_to_binary(Atom, latin1);
+conv(Pid, _) when is_pid(Pid) ->
+    list_to_binary(pid_to_list(Pid)).
 
 
 conv_list(List, Options) ->
@@ -192,5 +194,13 @@ proplist_test() ->
 
     ?debugVal(to_json(Rect, Options)).
 
+pid_test() ->
+    Req = {request, self()},
+    Options = [{request, ["pid"]}],
+
+    C = conv(Req, Options),
+
+    Self = list_to_binary(pid_to_list(self())),
+    ?assertEqual({<<"pid">>, Self}, hd(C)).
 
 -endif.
