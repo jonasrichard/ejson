@@ -7,10 +7,6 @@
         json_props/1
     ]).
 
--ifdef(TEST).
--include_lib("eunit/include/eunit.hrl").
--endif.
-
 %% TODO: float conversion?
 %% now the decimals is wired to 7
 
@@ -91,6 +87,8 @@ conv(Tuple, Options) when is_tuple(Tuple) ->
                ({{pre, Name, {Mod, Fun}}, _Value}, Acc) ->
                 Value = erlang:apply(Mod, Fun, [Tuple]),
                 [{list_to_binary(Name), conv(Value, Options)} | Acc];
+               ({{const, Name, Value}, _ReplacedValue}, Acc) ->
+                [{list_to_binary(Name), conv(Value, Options)} | Acc];
                ({Name, Value}, Acc) ->
                 [{list_to_binary(Name), conv(Value, Options)} | Acc]
             end,
@@ -163,83 +161,39 @@ zip([H1|T1], [H2|T2]) ->
 
 -ifdef(TEST).
 
+%% Common test util functions
+
+json_prop(Json, PropName) ->
+    proplists:get_value(list_to_binary(PropName), Json).
+
+-endif.
+
 %%number_json_test() ->
 %%    ?assertEqual(<<"1">>, conv(1, [])),
 %%    ?assertEqual(<<"-83">>, conv(-83, [])),
 %%    ?assertEqual(<<"1.2">>, conv(1.2, [])),
 %%    ?assertEqual(<<"0.07">>, conv(7.0e-2, [])).
 
-atom_json_test() ->
-    ?assertEqual(null, conv(undefined, [])),
-    ?assertEqual(false, conv(false, [])),
-    ?assertEqual(true, conv(true, [])),
-    ?assertEqual(<<"node_1">>, conv(node_1, [])).
-
-record_test() ->
-    Rec = {person, "Joe", 56000, true},
-    Options = [{person, ["name", "salary", "hasBooks"]}],
-
-    ?assertEqual([{<<"name">>, <<"Joe">>},
-                  {<<"salary">>, 56000},
-                  {<<"hasBooks">>, true}],
-                 conv(Rec, Options)).
-
-record_list_test() ->
-    Book1 = {book, "Introduction to clean coding", 251},
-    Book2 = {book, "TDD - the easy way", 760},
-    Person = {person, "Sam", [Book1, Book2]},
-    
-    Options = [
-        {book, ["title", "numberOfPages"]},
-        {person, ["nickName", {list, "books"}]}], 
-    
-    C = conv(Person, Options),
-
-    [Pers, Books] = C,
-
-    ?assertEqual({<<"nickName">>, <<"Sam">>}, Pers),
-    ?assertEqual({<<"books">>, [
-            [{<<"title">>, <<"Introduction to clean coding">>},
-             {<<"numberOfPages">>, 251}],
-            [{<<"title">>, <<"TDD - the easy way">>},
-             {<<"numberOfPages">>, 760}]
-        ]}, Books).
-
-proplist_test() ->
-    Square = {shape, square, [{a, 10}]},
-    Circle = {shape, circle, [{radius, 5}]},
-    Rect = {shape, rect, [{x_left, 10}, {y_left, 15},
-                          {x_right, 50}, {y_right, 30}]},
-
-    Options = [{shape, ["type", {proplist, "data"}]}],
-
-    ?debugVal(to_json(Rect, Options)).
-
-pid_test() ->
-    Req = {request, self()},
-    Options = [{request, ["pid"]}],
-
-    C = conv(Req, Options),
-
-    Self = list_to_binary(pid_to_list(self())),
-    ?assertEqual({<<"pid">>, Self}, hd(C)).
-
-skip_test() ->
-    Req = {request, self(), socket, "Message"},
-    Options = [{request, [skip, skip, "message"]}],
-
-    C = conv(Req, Options),
-    ?assertEqual({<<"message">>, <<"Message">>}, hd(C)).
-
-fun_test() ->
-    Area = fun({square, Side}) ->
-                   Side * Side
-           end,
-    Square = {square, 5},
-    Options = [{square, ["side", {pre, "area", Area}]}],
-
-    C = conv(Square, Options),
-    ?assertEqual(proplists:get_value(<<"side">>, C), 5),
-    ?assertEqual(proplists:get_value(<<"area">>, C), 25).
-
--endif.
+%%
+%%
+%%    ?debugVal(to_json(Rect, Options)).
+%%
+%%skip_test() ->
+%%    Req = {request, self(), socket, "Message"},
+%%    Options = [{request, [skip, skip, "message"]}],
+%%
+%%    C = conv(Req, Options),
+%%    ?assertEqual({<<"message">>, <<"Message">>}, hd(C)).
+%%
+%%fun_test() ->
+%%    Area = fun({square, Side}) ->
+%%                   Side * Side
+%%           end,
+%%    Square = {square, 5},
+%%    Options = [{square, ["side", {pre, "area", Area}]}],
+%%
+%%    C = conv(Square, Options),
+%%    ?assertEqual(proplists:get_value(<<"side">>, C), 5),
+%%    ?assertEqual(proplists:get_value(<<"area">>, C), 25).
+%%
+%%-endif.
