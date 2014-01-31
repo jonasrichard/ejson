@@ -78,19 +78,13 @@ conv(Tuple, Options) when is_tuple(Tuple) ->
     %% Convert each values
     lists:reverse(
         lists:foldl(
-            fun({{list, Name}, Value}, Acc) ->
-                [{list_to_binary(Name), conv_list(Value, Options)} | Acc];
-               ({{proplist, Name}, Value}, Acc) ->
-                [{list_to_binary(Name), conv_proplist(Value, Options)} | Acc];
-               ({skip, _Value}, Acc) ->
-                Acc;
-               ({{pre, Name, {Mod, Fun}}, _Value}, Acc) ->
-                Value = erlang:apply(Mod, Fun, [Tuple]),
-                [{list_to_binary(Name), conv(Value, Options)} | Acc];
-               ({{const, Name, Value}, _ReplacedValue}, Acc) ->
-                [{list_to_binary(Name), conv(Value, Options)} | Acc];
-               ({Name, Value}, Acc) ->
-                [{list_to_binary(Name), conv(Value, Options)} | Acc]
+            fun({Rule, Value}, Acc) ->
+                case apply_rule(Rule, Tuple, Value, Options) of
+                    {AttrName, AttrValue} ->
+                        [{list_to_binary(AttrName), AttrValue} | Acc];
+                    undefined ->
+                        Acc
+                end
             end,
             [],
             zip(FieldNames, Vals)));
@@ -110,9 +104,29 @@ conv(Pid, _) when is_pid(Pid) ->
     list_to_binary(pid_to_list(Pid)).
 
 
-conv_list(List, Options) ->
-    [conv(L, Options) || L <- List].
+conv_list(List, Options) when is_list(List) ->
+    [conv(L, Options) || L <- List];
+conv_list(List, _Options) ->
+    throw({error, {not_a_list, List}}).
 
+apply_rule({list, Name}, _Record, Value, Options) ->
+    List = conv_list(Value, Options),
+    {Name, List};
+apply_rule({proplist, Name}, _Record, Value, Options) ->
+    PropList = conv_proplist(Value, Options),
+    {Name, PropList};
+apply_rule(skip, _Record, _Value, _Options) ->
+    undefined;
+apply_rule({field_fun, Name, {M, F}}, _Record, Value, Options) ->
+    Value2 = erlang:apply(M, F, [Value]),
+    {Name, conv(Value2, Options)};
+apply_rule({rec_fun, Name, {M, F}}, Record, _Value, Options) ->
+    Value2 = erlang:apply(M, F, [Record]),
+    {Name, conv(Value2, Options)};
+apply_rule({const, Name, Const}, _Record, _Value, Options) ->
+    {Name, conv(Const, Options)};
+apply_rule(Name, _Record, Value, Options) ->
+    {Name, conv(Value, Options)}.
 
 %%-----------------------------------------------------------------------------
 %% @doc
@@ -122,7 +136,7 @@ conv_list(List, Options) ->
 %% each key, convert the atom key into camel-cased name. 
 %% @end
 %%-----------------------------------------------------------------------------
-conv_proplist(List, Options) ->
+conv_proplist(List, Options) when is_list(List) ->
     Keys = proplists:get_keys(List),
     lists:map(
         fun(Key) ->
@@ -133,7 +147,9 @@ conv_proplist(List, Options) ->
                     {camel_case(Key), conv_list(Vals, Options)}
             end
         end,
-        Keys).
+        Keys);
+conv_proplist(List, _Options) ->
+    throw({error, {not_a_proplist, List}}).
 
 camel_case(Atom) ->
     list_to_binary(lists:reverse(camel_case(atom_to_list(Atom), []))).
