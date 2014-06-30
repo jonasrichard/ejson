@@ -55,7 +55,7 @@ json_props(ModuleList) ->
 %%     pairs like
 %%     [{<<"nickName">>, <<"Jim">>}, {<<"numberOfPapers">>, <<"120">>}].
 %%
-%%     Later it can be feed into jsx:encode().
+%%     Later it can be fed into jsx:encode().
 %%
 %%   - FieldName can be {list, Name}. In that case the field in the tuple
 %%     will be treated as a list.
