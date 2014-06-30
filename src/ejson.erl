@@ -30,7 +30,7 @@ json_props(ModuleList) ->
     lists:foldl(
         fun(Module, Acc) ->
             Attrs = proplists:get_value(attributes, Module:module_info()),
-            Opts = lists:flatten([V || {json, V} <- Attrs]),
+            Opts = [V || {json, V} <- Attrs],
 
             Opts ++ Acc
         end, [], ModuleList).
