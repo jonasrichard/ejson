@@ -76,7 +76,7 @@ The keys in proplist will be camel case converted and those will be the name of 
 -json({shapes, [{list, "data"}]}).
 -json({canvas, [{proplist, "opts"}]).
 
-ejson:to_json({canvas, [{width, 500}, {height, 300}, {bit_depth: 16}]}).
+ejson:to_json({canvas, [{width, 500}, {height, 300}, {bit_depth, 16}]}).
 ```
 
 It is a simple object
