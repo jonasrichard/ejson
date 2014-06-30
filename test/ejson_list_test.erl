@@ -90,4 +90,19 @@ nested_lists_test() ->
     ?assertEqual(1, length(json_prop(T1, "ingredients"))),
     ?assertEqual(3, length(json_prop(T2, "ingredients"))).
 
+nested_proplists_test() ->
+    Opts = [{chocolate, [{proplist, "types"}]},
+            {ingredients, [{proplist, "ingredients"}]}],
+
+    Dark = {ingredients, [{cocoa, 100}]},
+    Milk = {ingredients, [{cocoa, 60}, {milk, 30}, {sugar, 10}]},
+    Chocs = conv({chocolate, [{dark, Dark}, {milk, Milk}]}, Opts),
+
+    Types = json_prop(Chocs, "types"),
+    ?assertEqual(2, length(Types)),
+
+    [{<<"dark">>, T1}, {<<"milk">>, T2}] = Types,
+    ?assertEqual(1, length(json_prop(T1, "ingredients"))),
+    ?assertEqual(3, length(json_prop(T2, "ingredients"))).
+
 -endif.
