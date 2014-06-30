@@ -74,4 +74,20 @@ many_prop_test() ->
     J = conv({canvas, [{a, 2}, {a, 3}]}, Opts),
     ?assertEqual([2, 3], json_prop(json_prop(J, "props"), "a")).
 
+nested_lists_test() ->
+    Opts = [{chocolate, [{list, "types"}]},
+            {type, [{list, "ingredients"}]}],
+
+    Dark = {type, ["cocoa"]},
+    Milk = {type, ["cocoa", "milk", "sugar"]},
+    Chocs = conv({chocolate, [Dark, Milk]}, Opts),
+
+    Types = json_prop(Chocs, "types"),
+    ?assertEqual(2, length(Types)),
+
+    [T1, T2] = Types,
+
+    ?assertEqual(1, length(json_prop(T1, "ingredients"))),
+    ?assertEqual(3, length(json_prop(T2, "ingredients"))).
+
 -endif.
