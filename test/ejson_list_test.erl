@@ -80,15 +80,18 @@ nested_lists_test() ->
 
     Dark = {type, ["cocoa"]},
     Milk = {type, ["cocoa", "milk", "sugar"]},
-    Chocs = conv({chocolate, [Dark, Milk]}, Opts),
+    Term = {chocolate, [Dark, Milk]},
+    Chocs = conv(Term, Opts),
 
     Types = json_prop(Chocs, "types"),
     ?assertEqual(2, length(Types)),
-
     [T1, T2] = Types,
-
     ?assertEqual(1, length(json_prop(T1, "ingredients"))),
-    ?assertEqual(3, length(json_prop(T2, "ingredients"))).
+    ?assertEqual(3, length(json_prop(T2, "ingredients"))),
+    [<<"cocoa">> | _] = json_prop(T2, "ingredients"),
+
+    Json = ejson:to_json(Term, Opts),
+    ?assert(is_binary(Json)).
 
 nested_proplists_test() ->
     Opts = [{chocolate, [{proplist, "types"}]},
@@ -96,13 +99,17 @@ nested_proplists_test() ->
 
     Dark = {ingredients, [{cocoa, 100}]},
     Milk = {ingredients, [{cocoa, 60}, {milk, 30}, {sugar, 10}]},
-    Chocs = conv({chocolate, [{dark, Dark}, {milk, Milk}]}, Opts),
+    Term = {chocolate, [{dark, Dark}, {milk, Milk}]},
+    Chocs = conv(Term, Opts),
 
     Types = json_prop(Chocs, "types"),
     ?assertEqual(2, length(Types)),
-
     [{<<"dark">>, T1}, {<<"milk">>, T2}] = Types,
     ?assertEqual(1, length(json_prop(T1, "ingredients"))),
-    ?assertEqual(3, length(json_prop(T2, "ingredients"))).
+    ?assertEqual(3, length(json_prop(T2, "ingredients"))),
+    [{<<"cocoa">>, 60} | _] = json_prop(T2, "ingredients"),
+
+    Json = ejson:to_json(Term, Opts),
+    ?assert(is_binary(Json)).
 
 -endif.
