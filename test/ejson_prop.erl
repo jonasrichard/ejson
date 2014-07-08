@@ -4,7 +4,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 all_test() ->
-    ?assertEqual(true, proper:quickcheck(basic_prop(), [{to_file, user}])).
+    ?assertEqual(true, proper:quickcheck(camel_case_prop(), [{to_file, user}])).
 
 basic() ->
     frequency([
@@ -18,8 +18,23 @@ basic() ->
 descriptor() ->
     tuple([atom(), integer()]).
 
+identifier_char() ->
+    frequency([
+              {$z - $a + 1, choose($a, $z)},
+              {3, $_},
+              {10, choose($0, $9)}
+             ]).
+
 record_name() ->
-    ?LET(Chars, list(choose(33, 127)), list_to_atom(Chars)).
+    ?LET(Chars, list(identifier_char()), list_to_atom(Chars)).
+
+camel_case_prop() ->
+    ?FORALL(Name, 
+        ?SUCHTHAT(R, record_name(), ejson_util:is_convertable_atom(R)),
+            begin
+                CC = ejson_util:atom_to_binary_cc(Name),
+                ejson_util:binary_to_atom_cc(CC) =:= Name
+            end).
 
 value_and_rule() ->
     ?LET(N, choose(0, 20),
