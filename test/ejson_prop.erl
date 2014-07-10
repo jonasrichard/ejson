@@ -6,18 +6,6 @@
 all_test() ->
     ?assertEqual([], proper:module(?MODULE, [{to_file, user}])).
 
-basic() ->
-    frequency([
-            {1, integer()},
-            {1, float()},
-            {1, atom()},
-            {1, tuple()},
-            {1, binary()}
-        ]).
-
-descriptor() ->
-    tuple([atom(), integer()]).
-
 identifier_char() ->
     frequency([
               {$z - $a + 1, choose($a, $z)},
@@ -32,11 +20,20 @@ record_name() ->
                   ejson_util:is_convertable_atom(list_to_atom(Chars))),
         list_to_atom(Name)).
 
+basic_rule_value() ->
+    frequency([
+            %% Some basic types don't need meta info
+            {1, {record_name(), integer()}},
+            {1, {record_name(), float()}},
+            {1, {{atom, record_name()}, atom()}}
+        ]).
+
 value_and_rule() ->
     ?LET(N, choose(0, 20),
-         ?LET({Name, Fields, Values},
-              {record_name(), vector(N, record_name()), vector(N, integer())},
+         ?LET({Name, RuleValues},
+              {record_name(), vector(N, basic_rule_value())},
               begin
+                  {Fields, Values} = lists:unzip(RuleValues),
                   {list_to_tuple([Name | Fields]),
                    list_to_tuple([Name | Values])}
               end
@@ -72,7 +69,8 @@ prop_basic() ->
                                    ?debugVal(Opt),
                                    ?debugVal(Record),
                                    ?debugVal(Enc),
-                                   ?debugVal(Dec)
+                                   ?debugVal(Dec),
+                                   false
                                end
                         end
                 end

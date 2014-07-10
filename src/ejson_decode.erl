@@ -40,10 +40,24 @@ decode(AttrList, Opts) ->
 extract_fields([], _, _) ->
     [];
 extract_fields([Field | F], AttrList, Opts) ->
-    Bf = list_to_binary(atom_to_list(Field)),
+    BareField = get_field_name(Field),
+    Bf = list_to_binary(atom_to_list(BareField)),
     case lists:keyfind(Bf, 1, AttrList) of
         false ->
             {error, {no_value_for, Field}};
         {_, Value} ->
-            [Value | extract_fields(F, AttrList, Opts)]
+            %% Extract value based on Field rule
+            Extracted = extract_value(Field, Value),
+            [Extracted | extract_fields(F, AttrList, Opts)]
     end.
+
+get_field_name({atom, Field}) ->
+    Field;
+get_field_name(Field) ->
+    Field.
+
+extract_value({atom, _}, Value) ->
+    list_to_atom(binary_to_list(Value));
+extract_value(_, Value) ->
+    Value.
+

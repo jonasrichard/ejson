@@ -59,15 +59,32 @@ convert([], _Tuple, _Opts, Result) ->
     Result;
 convert([{Name, Value} | T], Tuple, Opts, Result) ->
     %% Check duplicate field names
-    case lists:keyfind(Name, 1, T) of
+    case check_duplicate(Name, T) of
         false ->
-            {NewName, Value} = apply_rule(Name, Tuple, Value, Opts),
-            convert(T, Tuple, Opts, [{?BIN(NewName), Value} | Result]);
-        _ ->
-            {error, {duplicate_field_name, Name}}
+            {NewName, NewValue} = apply_rule(Name, Tuple, Value, Opts),
+            convert(T, Tuple, Opts, [{?BIN(NewName), NewValue} | Result]);
+        FieldName ->
+            {error, {duplicate_field_name, FieldName}}
     end.
 
 apply_rule(AttrName, Tuple, Value, Opts) when is_number(Value) ->
     {AttrName, Value};
 apply_rule({atom, AttrName}, Tuple, Value, Opts) when is_atom(Value) ->
     {AttrName, ?BIN(Value)}.
+
+check_duplicate({atom, Name}, Fields) ->
+    check_duplicate(Name, Fields);
+check_duplicate(Name, Fields) ->
+    case lists:keyfind(Name, 1, check_dup1(Fields)) of
+        false ->
+            false;
+        _ ->
+            Name
+    end.
+
+check_dup1([{atom, Name} | T]) ->
+    [Name | check_dup1(T)];
+check_dup1([Name | T]) ->
+    [Name | check_dup1(T)];
+check_dup1([]) ->
+    [].
