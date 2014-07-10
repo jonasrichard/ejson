@@ -1,4 +1,4 @@
--module(ejson_util).
+-module(ejson_test_util).
 
 -compile([export_all]).
 

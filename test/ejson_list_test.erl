@@ -1,6 +1,6 @@
 -module(ejson_list_test).
 
--import(ejson_util, [json_prop/2]).
+-import(ejson_test_util, [json_prop/2]).
 
 -include_lib("eunit/include/eunit.hrl").
 

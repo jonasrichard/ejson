@@ -22,11 +22,28 @@
 
 -export([decode/2]).
 
-decode(Value, _Opts) when is_number(Value) orelse is_boolean(Value) ->
-    Value;
-decode(null, _Opts) ->
-    undefined;
-decode("", _Opts) ->    %% This can be empty string as well
-    '';
-decode(_Value, _Opts) ->
-    ok.
+decode(AttrList, Opts) ->
+    case lists:keyfind(<<"__rec">>, 1, AttrList) of
+        {_, Rec} ->
+            RecordName = list_to_atom(binary_to_list(Rec)),
+            case ejson_util:get_fields(RecordName, Opts) of
+                {error, _} = Error ->
+                    Error;
+                Fields ->
+                    Values = extract_fields(Fields, AttrList, Opts),
+                    list_to_tuple([RecordName | Values])
+            end;
+        false ->
+            {error, no_record_name}
+    end.
+
+extract_fields([], _, _) ->
+    [];
+extract_fields([Field | F], AttrList, Opts) ->
+    Bf = list_to_binary(atom_to_list(Field)),
+    case lists:keyfind(Bf, 1, AttrList) of
+        false ->
+            {error, {no_value_for, Field}};
+        {_, Value} ->
+            [Value | extract_fields(F, AttrList, Opts)]
+    end.

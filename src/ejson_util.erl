@@ -22,7 +22,14 @@
 
 -export([atom_to_binary_cc/1,
          binary_to_atom_cc/1,
-         is_convertable_atom/1]).
+         is_convertable_atom/1,
+         get_fields/2,
+         zip/2
+        ]).
+
+%%%=============================================================================
+%%% API functions
+%%%=============================================================================
 
 atom_to_binary_cc(Atom) ->
     list_to_binary(lists:reverse(camel_case(atom_to_list(Atom), []))).
@@ -34,6 +41,28 @@ is_convertable_atom(Atom) ->
     %% true if the atom can be converted by the two functions unambiguously
     L = atom_to_list(Atom),
     start_with_char(L) andalso proper_underscore(L).
+
+get_fields(RecordName, Opts) ->
+    case lists:keyfind(RecordName, 1, Opts) of
+        false ->
+            {error, {no_such_record, RecordName}};
+        R ->
+            [_ | Fields] = tuple_to_list(R),
+            Fields
+    end.
+
+zip([], []) ->
+    [];
+zip([H1|T1], []) ->
+    [{H1, undefined} | zip(T1, [])];
+zip([], [H2|T2]) ->
+    [{undefined, H2} | zip([], T2)];
+zip([H1|T1], [H2|T2]) ->
+    [{H1, H2} | zip(T1, T2)].
+
+%%%=============================================================================
+%%% Internal functions
+%%%=============================================================================
 
 start_with_char([L|_]) when L >= $a andalso L =< $z ->
     true;

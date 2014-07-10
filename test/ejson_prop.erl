@@ -4,7 +4,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 all_test() ->
-    ?assertEqual(true, proper:quickcheck(camel_case_prop(), [{to_file, user}])).
+    ?assertEqual([], proper:module(?MODULE, [{to_file, user}])).
 
 basic() ->
     frequency([
@@ -26,15 +26,11 @@ identifier_char() ->
              ]).
 
 record_name() ->
-    ?LET(Chars, list(identifier_char()), list_to_atom(Chars)).
-
-camel_case_prop() ->
-    ?FORALL(Name, 
-        ?SUCHTHAT(R, record_name(), ejson_util:is_convertable_atom(R)),
-            begin
-                CC = ejson_util:atom_to_binary_cc(Name),
-                ejson_util:binary_to_atom_cc(CC) =:= Name
-            end).
+    ?LET(Name,
+        ?SUCHTHAT(Chars,
+                  list(identifier_char()),
+                  ejson_util:is_convertable_atom(list_to_atom(Chars))),
+        list_to_atom(Name)).
 
 value_and_rule() ->
     ?LET(N, choose(0, 20),
@@ -46,11 +42,38 @@ value_and_rule() ->
               end
              )).
 
-basic_prop() ->
-    ?FORALL(Value, value_and_rule(),
+prop_camel_case() ->
+    ?FORALL(Name, 
+        ?SUCHTHAT(R, record_name(), ejson_util:is_convertable_atom(R)),
             begin
-                ?debugVal(Value),
-                true
+                CC = ejson_util:atom_to_binary_cc(Name),
+                ejson_util:binary_to_atom_cc(CC) =:= Name
             end).
-%%    ?FORALL(Value, basic(),
-%%        ejson_decode:decode(ejson_encode:encode(Value, []), []) =:= Value).
+
+prop_zip() ->
+    ?FORALL({A, B}, {list(), list()},
+            begin
+                Zip = ejson_util:zip(A, B),
+                length(Zip) =:= erlang:max(length(A), length(B))
+            end).
+
+prop_basic() ->
+    ?FORALL({Opt, Record}, value_and_rule(),
+            begin
+                Enc = ejson_encode:encode(Record, [Opt]),
+                case Enc of
+                    {error, {duplicate_field_name, _}} ->
+                        true;
+                    _ ->
+                        Dec = ejson_decode:decode(Enc, [Opt]),
+                        if Record =:= Dec -> true;
+                           true ->
+                               begin
+                                   ?debugVal(Opt),
+                                   ?debugVal(Record),
+                                   ?debugVal(Enc),
+                                   ?debugVal(Dec)
+                               end
+                        end
+                end
+            end).
