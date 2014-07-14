@@ -70,21 +70,29 @@ convert([{Name, Value} | T], Tuple, Opts, Result) ->
 apply_rule(AttrName, Tuple, Value, Opts) when is_number(Value) ->
     {AttrName, Value};
 apply_rule({atom, AttrName}, Tuple, Value, Opts) when is_atom(Value) ->
-    {AttrName, ?BIN(Value)}.
+    {AttrName, ?BIN(Value)};
+apply_rule({binary, AttrName}, Tuple, Value, Opts) when is_binary(Value) ->
+    {AttrName, Value};
+apply_rule({string, AttrName}, Tuple, Value, Opts) ->
+    {AttrName, unicode:characters_to_binary(Value)}.
 
-check_duplicate({atom, Name}, Fields) ->
+check_duplicate({Spec, Name}, Fields) when Spec =:= atom orelse
+                                           Spec =:= string orelse
+                                           Spec =:= binary ->
     check_duplicate(Name, Fields);
 check_duplicate(Name, Fields) ->
-    case lists:keyfind(Name, 1, check_dup1(Fields)) of
+    case lists:member(Name, check_dup1(Fields)) of
         false ->
             false;
         _ ->
             Name
     end.
 
-check_dup1([{atom, Name} | T]) ->
+check_dup1([{{Spec, Name}, _Value} | T]) when Spec =:= atom orelse
+                                              Spec =:= string orelse
+                                              Spec =:= binary ->
     [Name | check_dup1(T)];
-check_dup1([Name | T]) ->
+check_dup1([{Name, _Value} | T]) ->
     [Name | check_dup1(T)];
 check_dup1([]) ->
     [].

@@ -51,11 +51,19 @@ extract_fields([Field | F], AttrList, Opts) ->
             [Extracted | extract_fields(F, AttrList, Opts)]
     end.
 
+get_field_name({binary, Field}) ->
+    Field;
+get_field_name({string, Field}) ->
+    Field;
 get_field_name({atom, Field}) ->
     Field;
 get_field_name(Field) ->
     Field.
 
+extract_value({binary, _}, Value) ->
+    Value;
+extract_value({string, _}, Value) ->
+    unicode:characters_to_list(Value);
 extract_value({atom, _}, Value) ->
     list_to_atom(binary_to_list(Value));
 extract_value(_, Value) ->

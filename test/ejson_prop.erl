@@ -25,7 +25,9 @@ basic_rule_value() ->
             %% Some basic types don't need meta info
             {1, {record_name(), integer()}},
             {1, {record_name(), float()}},
-            {1, {{atom, record_name()}, atom()}}
+            {1, {{atom, record_name()}, atom()}},
+            {1, {{string, record_name()}, string()}},
+            {1, {{binary, record_name()}, binary()}}
         ]).
 
 value_and_rule() ->
