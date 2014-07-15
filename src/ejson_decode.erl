@@ -47,10 +47,12 @@ extract_fields([Field | F], AttrList, Opts) ->
             {error, {no_value_for, Field}};
         {_, Value} ->
             %% Extract value based on Field rule
-            Extracted = extract_value(Field, Value),
+            Extracted = extract_value(Field, Value, Opts),
             [Extracted | extract_fields(F, AttrList, Opts)]
     end.
 
+get_field_name({list, Field}) ->
+    Field;
 get_field_name({binary, Field}) ->
     Field;
 get_field_name({string, Field}) ->
@@ -60,12 +62,14 @@ get_field_name({atom, Field}) ->
 get_field_name(Field) ->
     Field.
 
-extract_value({binary, _}, Value) ->
+extract_value({list, _}, Value, Opts) ->
+    [decode(V, Opts) || V <- Value];
+extract_value({binary, _}, Value, _Opts) ->
     Value;
-extract_value({string, _}, Value) ->
+extract_value({string, _}, Value, _Opts) ->
     unicode:characters_to_list(Value);
-extract_value({atom, _}, Value) ->
+extract_value({atom, _}, Value, _Opts) ->
     list_to_atom(binary_to_list(Value));
-extract_value(_, Value) ->
+extract_value(_, Value, _Opts) ->
     Value.
 

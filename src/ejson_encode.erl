@@ -37,8 +37,17 @@
 %%     a string or to an atom.
 %%------------------------------------------------------------------------------
 
+encode(Tuple, Opts) ->
+    RecordNames = [element(1, Opt) || Opt <- Opts],
+    case lists:sort(RecordNames) =:= lists:usort(RecordNames) of
+        true ->
+            encode1(Tuple, Opts);
+        false ->
+            {error, duplicate_record_names}
+    end.
+
 %% Convert a record
-encode(Tuple, Opts) when is_tuple(Tuple) andalso is_atom(element(1, Tuple)) ->
+encode1(Tuple, Opts) when is_tuple(Tuple) andalso is_atom(element(1, Tuple)) ->
     [RecordName | Values] = tuple_to_list(Tuple),
     %% Get field rules
     case ejson_util:get_fields(RecordName, Opts) of
@@ -73,8 +82,11 @@ apply_rule({atom, AttrName}, Tuple, Value, Opts) when is_atom(Value) ->
     {AttrName, ?BIN(Value)};
 apply_rule({binary, AttrName}, Tuple, Value, Opts) when is_binary(Value) ->
     {AttrName, Value};
-apply_rule({string, AttrName}, Tuple, Value, Opts) ->
-    {AttrName, unicode:characters_to_binary(Value)}.
+apply_rule({string, AttrName}, _Tuple, Value, _Opts) ->
+    {AttrName, unicode:characters_to_binary(Value)};
+apply_rule({list, AttrName}, _Tuple, Value, Opts) ->
+    List = [encode1(V, Opts) || V <- Value],
+    {AttrName, List}.
 
 check_duplicate({Spec, Name}, Fields) when Spec =:= atom orelse
                                            Spec =:= string orelse

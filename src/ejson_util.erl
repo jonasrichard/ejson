@@ -22,7 +22,7 @@
 
 -export([atom_to_binary_cc/1,
          binary_to_atom_cc/1,
-         is_convertable_atom/1,
+         is_name_convertable/1,
          get_fields/2,
          zip/2
         ]).
@@ -37,10 +37,11 @@ atom_to_binary_cc(Atom) ->
 binary_to_atom_cc(Binary) ->
     list_to_atom(lists:reverse(underscore(binary_to_list(Binary), []))).
 
-is_convertable_atom(Atom) ->
-    %% true if the atom can be converted by the two functions unambiguously
-    L = atom_to_list(Atom),
-    start_with_char(L) andalso proper_underscore(L).
+%% true if the atom can be converted by the two functions unambiguously
+is_name_convertable(Atom) when is_atom(Atom) ->
+    is_name_convertable(atom_to_list(Atom));
+is_name_convertable(String) ->
+    start_with_char(String) andalso proper_underscore(String).
 
 get_fields(RecordName, Opts) ->
     case lists:keyfind(RecordName, 1, Opts) of
