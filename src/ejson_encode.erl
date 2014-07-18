@@ -70,8 +70,12 @@ convert([{Name, Value} | T], Tuple, Opts, Result) ->
     %% Check duplicate field names
     case check_duplicate(Name, T) of
         false ->
-            {NewName, NewValue} = apply_rule(Name, Tuple, Value, Opts),
-            convert(T, Tuple, Opts, [{?BIN(NewName), NewValue} | Result]);
+            case apply_rule(Name, Tuple, Value, Opts) of
+                undefined ->
+                    convert(T, Tuple, Opts, Result);
+                {NewName, NewValue} ->
+                    convert(T, Tuple, Opts, [{?BIN(NewName), NewValue} | Result])
+            end;
         FieldName ->
             {error, {duplicate_field_name, FieldName}}
     end.
@@ -86,7 +90,9 @@ apply_rule({string, AttrName}, _Tuple, Value, _Opts) ->
     {AttrName, unicode:characters_to_binary(Value)};
 apply_rule({list, AttrName}, _Tuple, Value, Opts) ->
     List = [encode1(V, Opts) || V <- Value],
-    {AttrName, List}.
+    {AttrName, List};
+apply_rule(skip, _Tuple, _Value, _Opts) ->
+    undefined.
 
 check_duplicate({Spec, Name}, Fields) when Spec =:= atom orelse
                                            Spec =:= string orelse

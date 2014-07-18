@@ -13,6 +13,13 @@ all_test() ->
 pick_one(List) ->
     lists:nth(random:uniform(length(List)), List).
 
+shuffle([]) ->
+    [];
+shuffle(List) ->
+    Elem = pick_one(List),
+    Rest = lists:delete(Elem, List),
+    [Elem | shuffle(Rest)].
+
 identifier_char() ->
     frequency([
               {$z - $a + 1, choose($a, $z)},
@@ -33,7 +40,8 @@ rule() ->
                {1, {atom, symb_name()}},        %% atom
                {1, {string, symb_name()}},      %% utf-8 string
                {1, {binary, symb_name()}},      %% utf-8 binary
-               {1, {list, symb_name()}}         %% list of anything
+               {1, {list, symb_name()}},        %% list of anything
+               {1, skip}
               ]).
 
 record_rule() ->
@@ -43,6 +51,8 @@ record_rule() ->
              list_to_tuple([RecordName | FieldRules])
          end).
 
+basic_value(skip, _) ->
+    undefined;
 basic_value({atom, _}, _) ->
     atom();
 basic_value({string, _}, _) ->
@@ -64,7 +74,9 @@ record_value() ->
 record_value(Rules) ->
     Rule = pick_one(Rules),
     [RecordName | Fields] = tuple_to_list(Rule),
-    FieldGens = [basic_value(Field, Rules) || Field <- Fields],
+    FieldGens = [X || X <- [basic_value(Field, Rules) || Field <- Fields],
+                      X =/= undefined],
+    
     ?LET(Values, FieldGens,
          begin
              {list_to_tuple([RecordName | Values]), Rules}
