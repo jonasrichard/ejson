@@ -64,7 +64,9 @@ encode1(Tuple, Opts) when is_tuple(Tuple) andalso is_atom(element(1, Tuple)) ->
                 AttrList ->
                     lists:reverse(AttrList)
             end
-    end.
+    end;
+encode1(Value, _Opts) when is_number(Value) ->
+    Value.
 
 convert([], _Tuple, _Opts, Result) ->
     Result;
@@ -82,11 +84,11 @@ convert([{Name, Value} | T], Tuple, Opts, Result) ->
             {error, {duplicate_field_name, FieldName}}
     end.
 
-apply_rule(AttrName, Tuple, Value, Opts) when is_number(Value) ->
-    {AttrName, Value};
-apply_rule({atom, AttrName}, Tuple, Value, Opts) when is_atom(Value) ->
+apply_rule(skip, _Tuple, _Value, _Opts) ->
+    undefined;
+apply_rule({atom, AttrName}, _Tuple, Value, _Opts) when is_atom(Value) ->
     {AttrName, ?BIN(Value)};
-apply_rule({binary, AttrName}, Tuple, Value, Opts) when is_binary(Value) ->
+apply_rule({binary, AttrName}, _Tuple, Value, _Opts) when is_binary(Value) ->
     {AttrName, Value};
 apply_rule({string, AttrName}, _Tuple, Value, _Opts) ->
     {AttrName, unicode:characters_to_binary(Value)};
@@ -96,8 +98,18 @@ apply_rule({list, AttrName}, _Tuple, Value, Opts) ->
 apply_rule({proplist, AttrName}, _Tuple, Value, _Opts) ->
     Vals = [{?BIN(Prop), Val} || {Prop, Val} <- Value],
     {AttrName, [{<<"__type">>, <<"proplist">>} | Vals]};
-apply_rule(skip, _Tuple, _Value, _Opts) ->
-    undefined.
+apply_rule({field_fun, AttrName, {M, F}}, _Tuple, Value, Opts) ->
+    Val = erlang:apply(M, F, [Value]),
+    {AttrName, encode1(Val, Opts)};
+apply_rule({rec_fun, AttrName, {M, F}}, Tuple, _Value, Opts) ->
+    Val = erlang:apply(M, F, [Tuple]),
+    {AttrName, encode1(Val, Opts)};
+apply_rule({const, AttrName, Const}, _Tuple, _Value, Opts) ->
+    {AttrName, encode1(Const, Opts)};
+apply_rule(AttrName, _Tuple, Value, Opts) when is_tuple(Value) ->
+    {AttrName, encode1(Value, Opts)};
+apply_rule(AttrName, _Tuple, Value, _Opts) when is_number(Value) ->
+    {AttrName, Value}.
 
 check_duplicate({Spec, Name}, Fields) when Spec =:= atom orelse
                                            Spec =:= string orelse

@@ -42,7 +42,7 @@ extract_fields([], _, _) ->
 extract_fields([Field | F], AttrList, Opts) ->
     case get_field_name(Field) of
         skip ->
-            extract_fields(F, AttrList, Opts);
+            [undefined | extract_fields(F, AttrList, Opts)];
         BareField ->
             Bf = if is_atom(BareField) ->
                         list_to_binary(atom_to_list(BareField));
@@ -69,6 +69,12 @@ get_field_name({atom, Field}) ->
     Field;
 get_field_name({proplist, Field}) ->
     Field;
+get_field_name({const, Field, _}) ->
+    Field;
+get_field_name({field_fun, Field, _}) ->
+    Field;
+get_field_name({rec_fun, Field, _}) ->
+    Field;
 get_field_name(Field) ->
     Field.
 
@@ -85,4 +91,3 @@ extract_value({proplist, _}, Value, _Opts) ->
      || {Prop, Val} <- Value, Prop =/= <<"__type">>];
 extract_value(_, Value, _Opts) ->
     Value.
-

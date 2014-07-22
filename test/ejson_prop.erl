@@ -3,12 +3,15 @@
 -include_lib("proper/include/proper.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
+-type record_name()     :: atom().
+
 -define(DBG, begin dbg:start(), dbg:tracer(), dbg:tpl(ejson_prop, [{'_',[],[{return_trace}]}]), dbg:p(all, c) end).
 
 all_test() ->
+    ?assertEqual([], proper:module(?MODULE, [{to_file, user}])).
     %%dbg:start(), dbg:tracer(), dbg:tpl(ejson_prop, []), dbg:p(all, c),
-    ?assertEqual(true, proper:quickcheck(prop_proplist_enc_dec(),
-                                         [{to_file, user}, {numtests, 100}])).
+    %%?assertEqual(true, proper:quickcheck(prop_proplist_enc_dec(),
+    %%                                     [{to_file, user}, {numtests, 100}])).
 
 pick_one(List) ->
     lists:nth(random:uniform(length(List)), List).
@@ -44,7 +47,10 @@ rule() ->
                {1, {string, field_rule_name()}},    %% utf-8 string
                {1, {binary, field_rule_name()}},    %% utf-8 binary
                {1, {list, field_rule_name()}},      %% list of anything
-               {1, skip}
+               {1, skip},
+               {1, {field_fun, field_rule_name()}},
+               {1, {rec_fun, field_rule_name()}},
+               {1, {const, field_rule_name(), integer()}}
               ]).
 
 record_rule() ->
@@ -68,17 +74,26 @@ basic_value({list, _}, Rules) ->
             {1, []},
             {1, record_list(Rules)}
           ]));
-basic_value(_, _) ->
-    frequency([{1, integer()}, {1, float()}]).
+basic_value({field_fun, _}, _) ->
+    integer();
+basic_value({rec_fun, _}, _) ->
+    integer();
+basic_value({const, _, X}, _) ->
+    X;
+basic_value(_, Rules) ->
+    frequency([
+               {1, integer()},
+               {1, float()},
+               {1, record_value(Rules)}
+              ]).
 
 record_value() ->
-    ?LET(Rules, non_empty(list(record_rule())), record_value(Rules)).
+    ?LET(Rules, non_empty(resize(5, list(record_rule()))), record_value(Rules)).
 
 record_value(Rules) ->
     Rule = pick_one(Rules),
     [RecordName | Fields] = tuple_to_list(Rule),
-    FieldGens = [X || X <- [basic_value(Field, Rules) || Field <- Fields],
-                      X =/= undefined],
+    FieldGens = [basic_value(Field, Rules) || Field <- Fields],
     
     ?LET(Values, FieldGens,
          begin
@@ -116,14 +131,14 @@ prop_proplist_enc_dec() ->
             begin
                 Rules = [{simple, {proplist, "properties"}}],
                 Record = {simple, PropList},
-                ?debugVal(Record),
+                %%?debugVal(Record),
                 case ejson_encode:encode(Record, Rules) of
                     {error, duplicate_property} ->
                         true;
                     Enc ->
-                        ?debugVal(Enc),
+                        %%?debugVal(Enc),
                         {simple, D} = ejson_decode:decode(shuffle(Enc), Rules),
-                        ?debugVal(D),
+                        %%?debugVal(D),
                         lists:all(
                           fun(E) ->
                                   lists:member(E, D)
