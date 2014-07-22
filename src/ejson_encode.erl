@@ -23,7 +23,9 @@
 -export([encode/2]).
 
 %% TODO: conditional macro for atom_to_binary
--define(BIN(Atom), list_to_binary(atom_to_list(Atom))).
+-define(BIN(Atom), if is_atom(Atom) -> list_to_binary(atom_to_list(Atom));
+                      true          -> Atom
+                   end).
 
 %%------------------------------------------------------------------------------
 %% Encoding rules
@@ -37,11 +39,11 @@
 %%     a string or to an atom.
 %%------------------------------------------------------------------------------
 
-encode(Tuple, Opts) ->
+encode(Value, Opts) ->
     RecordNames = [element(1, Opt) || Opt <- Opts],
     case lists:sort(RecordNames) =:= lists:usort(RecordNames) of
         true ->
-            encode1(Tuple, Opts);
+            encode1(Value, Opts);
         false ->
             {error, duplicate_record_names}
     end.
@@ -91,6 +93,9 @@ apply_rule({string, AttrName}, _Tuple, Value, _Opts) ->
 apply_rule({list, AttrName}, _Tuple, Value, Opts) ->
     List = [encode1(V, Opts) || V <- Value],
     {AttrName, List};
+apply_rule({proplist, AttrName}, _Tuple, Value, _Opts) ->
+    Vals = [{?BIN(Prop), Val} || {Prop, Val} <- Value],
+    {AttrName, [{<<"__type">>, <<"proplist">>} | Vals]};
 apply_rule(skip, _Tuple, _Value, _Opts) ->
     undefined.
 

@@ -7,7 +7,7 @@
 
 all_test() ->
     %%dbg:start(), dbg:tracer(), dbg:tpl(ejson_prop, []), dbg:p(all, c),
-    ?assertEqual(true, proper:quickcheck(prop_encode_decode(),
+    ?assertEqual(true, proper:quickcheck(prop_proplist_enc_dec(),
                                          [{to_file, user}, {numtests, 100}])).
 
 pick_one(List) ->
@@ -34,13 +34,16 @@ identifier() ->
 symb_name() ->
     ?LET(Id, identifier(), list_to_atom(Id)).
 
+field_rule_name() ->
+    oneof([symb_name(), identifier()]).
+
 rule() ->
     frequency([
-               {1, symb_name()},                %% number
-               {1, {atom, symb_name()}},        %% atom
-               {1, {string, symb_name()}},      %% utf-8 string
-               {1, {binary, symb_name()}},      %% utf-8 binary
-               {1, {list, symb_name()}},        %% list of anything
+               {1, field_rule_name()},              %% number
+               {1, {atom, field_rule_name()}},      %% atom
+               {1, {string, field_rule_name()}},    %% utf-8 string
+               {1, {binary, field_rule_name()}},    %% utf-8 binary
+               {1, {list, field_rule_name()}},      %% list of anything
                {1, skip}
               ]).
 
@@ -88,6 +91,9 @@ record_list(Rules) ->
              [Record || {Record, _Opts} <- List]
          end).
 
+proplist() ->
+    list({symb_name(), integer()}).
+
 prop_encode_decode() ->
     ?FORALL({Record, Opts}, record_value(),
             begin
@@ -99,21 +105,31 @@ prop_encode_decode() ->
                         true;
                     Enc ->
                         ?debugVal(Enc),
-                        Dec = ejson_decode:decode(Enc, Opts),
+                        Dec = ejson_decode:decode(shuffle(Enc), Opts),
                         ?debugVal(Dec),
                         Record =:= Dec
                 end
             end).
-%%    ?FORALL(Rules, non_empty(list(record_rule())),
-%%            begin
-%%                ?debugVal(Rules),
-%%                ?FORALL(Value, record_value(Rules),
-%%                    begin
-%%                        ?debugVal(Value),
-%%                        _Enc = ejson_encode:encode(Value, Rules),
-%%                        true
-%%                    end)
-%%            end).
+
+prop_proplist_enc_dec() ->
+    ?FORALL(PropList, proplist(),
+            begin
+                Rules = [{simple, {proplist, "properties"}}],
+                Record = {simple, PropList},
+                ?debugVal(Record),
+                case ejson_encode:encode(Record, Rules) of
+                    {error, duplicate_property} ->
+                        true;
+                    Enc ->
+                        ?debugVal(Enc),
+                        {simple, D} = ejson_decode:decode(shuffle(Enc), Rules),
+                        ?debugVal(D),
+                        lists:all(
+                          fun(E) ->
+                                  lists:member(E, D)
+                          end, PropList)
+                end
+            end).
 
 prop_camel_case() ->
     ?FORALL(Name, 
@@ -129,25 +145,3 @@ prop_zip() ->
                 Zip = ejson_util:zip(A, B),
                 length(Zip) =:= erlang:max(length(A), length(B))
             end).
-
-%%pro_basic() ->
-%%    ?FORALL({Opt, Record}, value_and_rule(),
-%%            begin
-%%                Enc = ejson_encode:encode(Record, [Opt]),
-%%                case Enc of
-%%                    {error, {duplicate_field_name, _}} ->
-%%                        true;
-%%                    _ ->
-%%                        Dec = ejson_decode:decode(Enc, [Opt]),
-%%                        if Record =:= Dec -> true;
-%%                           true ->
-%%                               begin
-%%                                   ?debugVal(Opt),
-%%                                   ?debugVal(Record),
-%%                                   ?debugVal(Enc),
-%%                                   ?debugVal(Dec),
-%%                                   false
-%%                               end
-%%                        end
-%%                end
-%%            end).

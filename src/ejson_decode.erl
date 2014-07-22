@@ -44,7 +44,11 @@ extract_fields([Field | F], AttrList, Opts) ->
         skip ->
             extract_fields(F, AttrList, Opts);
         BareField ->
-            Bf = list_to_binary(atom_to_list(BareField)),
+            Bf = if is_atom(BareField) ->
+                        list_to_binary(atom_to_list(BareField));
+                    true ->
+                        BareField
+                 end,
             case lists:keyfind(Bf, 1, AttrList) of
                 false ->
                     {error, {no_value_for, Field}};
@@ -63,6 +67,8 @@ get_field_name({string, Field}) ->
     Field;
 get_field_name({atom, Field}) ->
     Field;
+get_field_name({proplist, Field}) ->
+    Field;
 get_field_name(Field) ->
     Field.
 
@@ -74,6 +80,9 @@ extract_value({string, _}, Value, _Opts) ->
     unicode:characters_to_list(Value);
 extract_value({atom, _}, Value, _Opts) ->
     list_to_atom(binary_to_list(Value));
+extract_value({proplist, _}, Value, _Opts) ->
+    [{list_to_atom(binary_to_list(Prop)), Val}
+     || {Prop, Val} <- Value, Prop =/= <<"__type">>];
 extract_value(_, Value, _Opts) ->
     Value.
 
