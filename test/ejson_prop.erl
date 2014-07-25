@@ -8,10 +8,10 @@
 -define(DBG, begin dbg:start(), dbg:tracer(), dbg:tpl(ejson_prop, [{'_',[],[{return_trace}]}]), dbg:p(all, c) end).
 
 all_test() ->
+    dbg:start(), dbg:tracer(),
+    dbg:tpl(ejson_util, proper_underscore, 1, [{'_', [], [{return_trace}]}]),
+    dbg:p(all, c),
     ?assertEqual([], proper:module(?MODULE, [{to_file, user}])).
-    %%dbg:start(), dbg:tracer(), dbg:tpl(ejson_prop, []), dbg:p(all, c),
-    %%?assertEqual(true, proper:quickcheck(prop_proplist_enc_dec(),
-    %%                                     [{to_file, user}, {numtests, 100}])).
 
 pick_one(List) ->
     lists:nth(random:uniform(length(List)), List).
@@ -72,7 +72,7 @@ basic_value({list, _}, Rules) ->
     ?LAZY(
         frequency([
             {1, []},
-            {1, record_list(Rules)}
+            {1, ?LAZY(record_list(Rules))}
           ]));
 basic_value({field_fun, _}, _) ->
     integer();
@@ -84,7 +84,7 @@ basic_value(_, Rules) ->
     frequency([
                {1, integer()},
                {1, float()},
-               {1, record_value(Rules)}
+               {1, ?LAZY(record_value(Rules))}
               ]).
 
 record_value() ->
@@ -148,7 +148,7 @@ prop_proplist_enc_dec() ->
 
 prop_camel_case() ->
     ?FORALL(Name, 
-        ?SUCHTHAT(R, record_name(), ejson_util:is_convertable_atom(R)),
+        ?SUCHTHAT(R, record_name(), ejson_util:is_name_convertable(R)),
             begin
                 CC = ejson_util:atom_to_binary_cc(Name),
                 ejson_util:binary_to_atom_cc(CC) =:= Name

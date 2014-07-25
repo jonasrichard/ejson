@@ -77,6 +77,8 @@ proper_underscore([$_, L | T]) when L >= $a andalso L =< $z ->
     proper_underscore(T);
 proper_underscore([$_ | T]) ->
     false;
+proper_underscore([L | T]) when L >= $A andalso L =< $Z ->
+    false;
 proper_underscore([_ | T]) ->
     proper_underscore(T).
 
