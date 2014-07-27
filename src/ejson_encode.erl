@@ -43,7 +43,12 @@ encode(Value, Opts) ->
     RecordNames = [element(1, Opt) || Opt <- Opts],
     case lists:sort(RecordNames) =:= lists:usort(RecordNames) of
         true ->
-            encode1(Value, Opts);
+            case check_duplicate_fields(Opts) of
+                true ->
+                    {error, duplicate_field_name};
+                false ->
+                    encode1(Value, Opts)
+            end;
         false ->
             {error, duplicate_record_names}
     end.
@@ -71,17 +76,11 @@ encode1(Value, _Opts) when is_number(Value) ->
 convert([], _Tuple, _Opts, Result) ->
     Result;
 convert([{Name, Value} | T], Tuple, Opts, Result) ->
-    %% Check duplicate field names
-    case check_duplicate(Name, T) of
-        false ->
-            case apply_rule(Name, Tuple, Value, Opts) of
-                undefined ->
-                    convert(T, Tuple, Opts, Result);
-                {NewName, NewValue} ->
-                    convert(T, Tuple, Opts, [{?BIN(NewName), NewValue} | Result])
-            end;
-        FieldName ->
-            {error, {duplicate_field_name, FieldName}}
+    case apply_rule(Name, Tuple, Value, Opts) of
+        undefined ->
+            convert(T, Tuple, Opts, Result);
+        {NewName, NewValue} ->
+            convert(T, Tuple, Opts, [{?BIN(NewName), NewValue} | Result])
     end.
 
 apply_rule(skip, _Tuple, _Value, _Opts) ->
@@ -111,23 +110,14 @@ apply_rule(AttrName, _Tuple, Value, Opts) when is_tuple(Value) ->
 apply_rule(AttrName, _Tuple, Value, _Opts) when is_number(Value) ->
     {AttrName, Value}.
 
-check_duplicate({Spec, Name}, Fields) when Spec =:= atom orelse
-                                           Spec =:= string orelse
-                                           Spec =:= binary ->
-    check_duplicate(Name, Fields);
-check_duplicate(Name, Fields) ->
-    case lists:member(Name, check_dup1(Fields)) of
+check_duplicate_fields([]) ->
+    false;
+check_duplicate_fields([Rule | Rules]) ->
+    [_ | Fields] = tuple_to_list(Rule),
+    Names = [ejson_util:get_field_name(Field) || Field <- Fields],
+    case lists:sort(Names) =:= lists:usort(Names) of
+        true ->
+            check_duplicate_fields(Rules);
         false ->
-            false;
-        _ ->
-            Name
+            true
     end.
-
-check_dup1([{{Spec, Name}, _Value} | T]) when Spec =:= atom orelse
-                                              Spec =:= string orelse
-                                              Spec =:= binary ->
-    [Name | check_dup1(T)];
-check_dup1([{Name, _Value} | T]) ->
-    [Name | check_dup1(T)];
-check_dup1([]) ->
-    [].

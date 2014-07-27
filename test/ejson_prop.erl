@@ -9,7 +9,8 @@
 
 all_test() ->
     dbg:start(), dbg:tracer(),
-    dbg:tpl(ejson_prop, basic, 3, []), %% [{'_', [], [{return_trace}]}]),
+    %%dbg:tpl(ejson_prop, basic, 3, [{'_', [], [{return_trace}]}]),
+    %%dbg:tpl(ejson_prop, basic, 3, []),
     dbg:p(all, c),
     ?assertEqual([], proper:module(?MODULE, [{to_file, user}])).
 
@@ -55,7 +56,7 @@ rule() ->
 
 record_rule() ->
     ?LET({RecordName, FieldRules},
-         {symb_name(), [rule()]},
+         {symb_name(), list(rule())},
          begin
              list_to_tuple([RecordName | FieldRules])
          end).
@@ -126,11 +127,11 @@ basic({binary, _Name}, _Rules, _Depth) ->
 basic({string, _Name}, _Rules, _Depth) ->
     string();
 basic({list, _Name}, _Rules, 0) ->
-    [];
-basic({list, _Name}, Rules, Depth) ->
+    list(integer());
+basic({list, Name}, Rules, Depth) ->
     frequency([
-               {1, []},
-               {5, ?LAZY(list(value(pick_one(Rules), Rules, Depth - 1)))}
+               {1, basic({list, Name}, Rules, 0)},
+               {5, ?LAZY(non_empty(list(value(oneof(Rules), Rules, Depth - 1))))}
               ]);
 basic({const, _Name, Const}, _Rules, _Depth) ->
     Const;
@@ -153,37 +154,65 @@ value(RecordRule, Rules, Depth) ->
              list_to_tuple([RecordName | Values])
          end).
 
+equal(Expected, Actual, Opts) ->
+    [RecordName | Exps] = tuple_to_list(Expected),
+    Fields = ejson_util:get_fields(RecordName, Opts),
+    [RecordName | Acts] = tuple_to_list(Actual),
+    lists:all(
+      fun({Exp, Act, Rule}) ->
+              ?debugVal(Rule),
+              ?debugVal(Exp),
+              ?debugVal(Act),
+              case Rule of
+                  skip ->
+                      true;
+                  Name when is_atom(Name) orelse is_list(Name) ->
+                      Exp =:= Act;
+                  {Simple, _} when Simple =:= atom orelse
+                                   Simple =:= binary orelse
+                                   Simple =:= string ->
+                      Exp =:= Act;
+                  {rec_fun, _, _} ->
+                      true;
+                  {field_fun, _, _} ->
+                      true;
+                  {const, _, Value} ->
+                      true;
+                  {list, _} ->
+                      Exp =:= Act 
+              end
+      end, lists:zip3(Exps, Acts, Fields)).
+
 %%----
 
-prop_gen() ->
+pro_gen() ->
     ?FORALL(Rules, non_empty(resize(5, list(record_rule()))),
-        begin
-        ?debugVal(Rules),
-        ?FORALL(Record, value(pick_one(Rules), Rules),
-                begin
-                    ?debugVal(Record),
-                    true
-                end)
-        end).
-
-
-pro_encode_decode() ->
-    ?FORALL({Record, Opts}, record_value(),
+        ?FORALL(Record, value(pick_one(Rules), Rules, 0),
             begin
+                ?debugVal(Rules),
                 ?debugVal(Record),
-                ?debugVal(Opts),
                 true
-%%                case ejson_encode:encode(Record, Opts) of
-%%                    {error, duplicate_record_names} ->
-%%                        ?debugVal(Opts),
-%%                        true;
-%%                    Enc ->
-%%                        ?debugVal(Enc),
-%%                        Dec = ejson_decode:decode(shuffle(Enc), Opts),
-%%                        ?debugVal(Dec),
-%%                        Record =:= Dec
-%%                end
-            end).
+            end)).
+
+
+prop_encode_decode() ->
+    ?FORALL(Rules, non_empty(resize(5, list(record_rule()))),
+        ?FORALL(Record, value(pick_one(Rules), Rules, 0),
+            begin
+                ?debugVal(Rules),
+                ?debugVal(Record),
+                case ejson_encode:encode(Record, Rules) of
+                    {error, duplicate_record_names} ->
+                        true;
+                    {error, duplicate_field_name} ->
+                        true;
+                    Enc ->
+                        ?debugVal(Enc),
+                        Dec = ejson_decode:decode(shuffle(Enc), Rules),
+                        ?debugVal(Dec),
+                        equal(Record, Dec, Rules)
+                end
+            end)).
 
 pro_proplist_enc_dec() ->
     ?FORALL(PropList, proplist(),

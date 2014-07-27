@@ -40,7 +40,7 @@ decode(AttrList, Opts) ->
 extract_fields([], _, _) ->
     [];
 extract_fields([Field | F], AttrList, Opts) ->
-    case get_field_name(Field) of
+    case ejson_util:get_field_name(Field) of
         skip ->
             [undefined | extract_fields(F, AttrList, Opts)];
         BareField ->
@@ -59,27 +59,13 @@ extract_fields([Field | F], AttrList, Opts) ->
             end
     end.
 
-get_field_name({list, Field}) ->
-    Field;
-get_field_name({binary, Field}) ->
-    Field;
-get_field_name({string, Field}) ->
-    Field;
-get_field_name({atom, Field}) ->
-    Field;
-get_field_name({proplist, Field}) ->
-    Field;
-get_field_name({const, Field, _}) ->
-    Field;
-get_field_name({field_fun, Field, _}) ->
-    Field;
-get_field_name({rec_fun, Field, _}) ->
-    Field;
-get_field_name(Field) ->
-    Field.
-
 extract_value({list, _}, Value, Opts) ->
-    [decode(V, Opts) || V <- Value];
+    [case V of
+         _ when is_number(V) ->
+             V;
+         _ ->
+             decode(V, Opts)
+     end || V <- Value];
 extract_value({binary, _}, Value, _Opts) ->
     Value;
 extract_value({string, _}, Value, _Opts) ->

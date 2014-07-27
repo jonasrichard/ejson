@@ -24,6 +24,7 @@
          binary_to_atom_cc/1,
          is_name_convertable/1,
          get_fields/2,
+         get_field_name/1,
          zip/2
         ]).
 
@@ -51,6 +52,25 @@ get_fields(RecordName, Opts) ->
             [_ | Fields] = tuple_to_list(R),
             Fields
     end.
+
+get_field_name({list, Field}) ->
+    Field;
+get_field_name({binary, Field}) ->
+    Field;
+get_field_name({string, Field}) ->
+    Field;
+get_field_name({atom, Field}) ->
+    Field;
+get_field_name({proplist, Field}) ->
+    Field;
+get_field_name({const, Field, _}) ->
+    Field;
+get_field_name({field_fun, Field, _}) ->
+    Field;
+get_field_name({rec_fun, Field, _}) ->
+    Field;
+get_field_name(Field) ->
+    Field.
 
 zip([], []) ->
     [];
