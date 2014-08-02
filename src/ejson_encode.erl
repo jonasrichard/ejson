@@ -24,7 +24,7 @@
 
 %% TODO: conditional macro for atom_to_binary
 -define(BIN(Atom), if is_atom(Atom) -> list_to_binary(atom_to_list(Atom));
-                      true          -> Atom
+                      true          -> list_to_binary(Atom)
                    end).
 
 %%------------------------------------------------------------------------------
@@ -70,8 +70,12 @@ encode1(Tuple, Opts) when is_tuple(Tuple) andalso is_atom(element(1, Tuple)) ->
                     lists:reverse(AttrList)
             end
     end;
-encode1(Value, _Opts) when is_number(Value) ->
-    Value.
+encode1(Value, Opts) when is_list(Value) ->
+    [encode1(Val, Opts) || Val <- Value];
+encode1(Value, _Opts) when is_number(Value) orelse is_boolean(Value) ->
+    Value;
+encode1(undefined, _Opts) ->
+    null.
 
 convert([], _Tuple, _Opts, Result) ->
     Result;
@@ -97,11 +101,17 @@ apply_rule({list, AttrName}, _Tuple, Value, Opts) ->
 apply_rule({proplist, AttrName}, _Tuple, Value, _Opts) ->
     Vals = [{?BIN(Prop), Val} || {Prop, Val} <- Value],
     {AttrName, [{<<"__type">>, <<"proplist">>} | Vals]};
-apply_rule({field_fun, AttrName, {M, F}}, _Tuple, Value, Opts) ->
+apply_rule({field_fun, AttrName, {M, F}, _}, _Tuple, Value, Opts) ->
     Val = erlang:apply(M, F, [Value]),
+    {AttrName, encode1(Val, Opts)};
+apply_rule({field_fun, AttrName, EncFun, _}, _Tuple, Value, Opts) ->
+    Val = EncFun(Value),
     {AttrName, encode1(Val, Opts)};
 apply_rule({rec_fun, AttrName, {M, F}}, Tuple, _Value, Opts) ->
     Val = erlang:apply(M, F, [Tuple]),
+    {AttrName, encode1(Val, Opts)};
+apply_rule({rec_fun, AttrName, EncFun}, Tuple, _Value, Opts) ->
+    Val = EncFun(Tuple),
     {AttrName, encode1(Val, Opts)};
 apply_rule({const, AttrName, Const}, _Tuple, _Value, Opts) ->
     {AttrName, encode1(Const, Opts)};

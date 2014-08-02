@@ -5,13 +5,7 @@
 
 -type record_name()     :: atom().
 
--define(DBG, begin dbg:start(), dbg:tracer(), dbg:tpl(ejson_prop, [{'_',[],[{return_trace}]}]), dbg:p(all, c) end).
-
 all_test() ->
-    dbg:start(), dbg:tracer(),
-    %%dbg:tpl(ejson_prop, basic, 3, [{'_', [], [{return_trace}]}]),
-    %%dbg:tpl(ejson_prop, basic, 3, []),
-    dbg:p(all, c),
     ?assertEqual([], proper:module(?MODULE, [{to_file, user}])).
 
 pick_one(List) ->
@@ -49,8 +43,9 @@ rule() ->
                {1, {binary, field_rule_name()}},    %% utf-8 binary
                {1, {list, field_rule_name()}},      %% list of anything
                {1, skip},
-               {1, {field_fun, field_rule_name(), {?MODULE, conv}}},
-               {1, {rec_fun, field_rule_name(), {?MODULE, conv}}},
+               {1, {field_fun, field_rule_name(), {?MODULE, fconv},
+                                                  {?MODULE, fconv}}},
+               {1, {rec_fun, field_rule_name(), {?MODULE, rconv}}},
                {1, {const, field_rule_name(), integer()}}
               ]).
 
@@ -62,56 +57,59 @@ record_rule() ->
          end).
 
 %% function for rec_fun and field_fun
-conv(_) ->
+fconv(X) ->
+    X.
+
+rconv(_) ->
     1.
 
-basic_value(skip, _) ->
-    undefined;
-basic_value({atom, _}, _) ->
-    atom();
-basic_value({string, _}, _) ->
-    string();
-basic_value({binary, _}, _) ->
-    binary();
-basic_value({list, _}, Rules) ->
-    ?LAZY(
-        frequency([
-            {1, []},
-            {1, ?LAZY(record_list(Rules))}
-          ]));
-basic_value({field_fun, _, _}, _) ->
-    conv(undefined);
-basic_value({rec_fun, _, _}, _) ->
-    conv(undefined);
-basic_value({const, _, X}, _) ->
-    X;
-basic_value(_, Rules) ->
-    ?LAZY(frequency([
-               {1, integer()},
-               {1, float()},
-               {1, ?LET({Val, _}, record_value(Rules), Val)}
-              ])).
-
-record_value() ->
-    ?LAZY(?LET(Rules,
-               non_empty(resize(5, list(record_rule()))),
-               record_value(Rules))).
-
-record_value(Rules) ->
-    Rule = pick_one(Rules),
-    [RecordName | Fields] = tuple_to_list(Rule),
-    FieldGens = [basic_value(Field, Rules) || Field <- Fields],
-    
-    ?LET(Values, FieldGens,
-         begin
-             {list_to_tuple([RecordName | Values]), Rules}
-         end).
-
-record_list(Rules) ->
-    ?LET(List, list(record_value(Rules)),
-         begin
-             [Record || {Record, _Opts} <- List]
-         end).
+%%basic_value(skip, _) ->
+%%    undefined;
+%%basic_value({atom, _}, _) ->
+%%    atom();
+%%basic_value({string, _}, _) ->
+%%    string();
+%%basic_value({binary, _}, _) ->
+%%    binary();
+%%basic_value({list, _}, Rules) ->
+%%    ?LAZY(
+%%        frequency([
+%%            {1, []},
+%%            {1, ?LAZY(record_list(Rules))}
+%%          ]));
+%%basic_value({field_fun, _, _}, _) ->
+%%    conv(undefined);
+%%basic_value({rec_fun, _, _}, _) ->
+%%    conv(undefined);
+%%basic_value({const, _, X}, _) ->
+%%    X;
+%%basic_value(_, Rules) ->
+%%    ?LAZY(frequency([
+%%               {1, integer()},
+%%               {1, float()},
+%%               {1, ?LET({Val, _}, record_value(Rules), Val)}
+%%              ])).
+%%
+%%record_value() ->
+%%    ?LAZY(?LET(Rules,
+%%               non_empty(resize(5, list(record_rule()))),
+%%               record_value(Rules))).
+%%
+%%record_value(Rules) ->
+%%    Rule = pick_one(Rules),
+%%    [RecordName | Fields] = tuple_to_list(Rule),
+%%    FieldGens = [basic_value(Field, Rules) || Field <- Fields],
+%%    
+%%    ?LET(Values, FieldGens,
+%%         begin
+%%             {list_to_tuple([RecordName | Values]), Rules}
+%%         end).
+%%
+%%record_list(Rules) ->
+%%    ?LET(List, list(record_value(Rules)),
+%%         begin
+%%             [Record || {Record, _Opts} <- List]
+%%         end).
 
 proplist() ->
     list({symb_name(), integer()}).
@@ -137,7 +135,7 @@ basic({const, _Name, Const}, _Rules, _Depth) ->
     Const;
 basic({rec_fun, _Name, {_M, _F}}, _Rules, _Depth) ->
     integer();
-basic({field_fun, _Name, {_M, _F}}, _Rules, _Depth) ->
+basic({field_fun, _Name, _MF1, _MF2}, _Rules, _Depth) ->
     integer();
 basic(Name, _Rules, _Depth) when is_list(Name) orelse is_atom(Name) ->
     integer().
@@ -160,9 +158,9 @@ equal(Expected, Actual, Opts) ->
     [RecordName | Acts] = tuple_to_list(Actual),
     lists:all(
       fun({Exp, Act, Rule}) ->
-              ?debugVal(Rule),
-              ?debugVal(Exp),
-              ?debugVal(Act),
+%%              ?debugVal(Rule),
+%%              ?debugVal(Exp),
+%%              ?debugVal(Act),
               case Rule of
                   skip ->
                       true;
@@ -174,7 +172,7 @@ equal(Expected, Actual, Opts) ->
                       Exp =:= Act;
                   {rec_fun, _, _} ->
                       true;
-                  {field_fun, _, _} ->
+                  {field_fun, _, _, _} ->
                       true;
                   {const, _, Value} ->
                       true;
@@ -189,8 +187,8 @@ pro_gen() ->
     ?FORALL(Rules, non_empty(resize(5, list(record_rule()))),
         ?FORALL(Record, value(pick_one(Rules), Rules, 0),
             begin
-                ?debugVal(Rules),
-                ?debugVal(Record),
+%%                ?debugVal(Rules),
+%%                ?debugVal(Record),
                 true
             end)).
 
@@ -199,17 +197,17 @@ prop_encode_decode() ->
     ?FORALL(Rules, non_empty(resize(5, list(record_rule()))),
         ?FORALL(Record, value(pick_one(Rules), Rules, 0),
             begin
-                ?debugVal(Rules),
-                ?debugVal(Record),
+%%                ?debugVal(Rules),
+%%                ?debugVal(Record),
                 case ejson_encode:encode(Record, Rules) of
                     {error, duplicate_record_names} ->
                         true;
                     {error, duplicate_field_name} ->
                         true;
                     Enc ->
-                        ?debugVal(Enc),
+%%                        ?debugVal(Enc),
                         Dec = ejson_decode:decode(shuffle(Enc), Rules),
-                        ?debugVal(Dec),
+%%                        ?debugVal(Dec),
                         equal(Record, Dec, Rules)
                 end
             end)).

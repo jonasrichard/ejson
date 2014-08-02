@@ -47,7 +47,7 @@ extract_fields([Field | F], AttrList, Opts) ->
             Bf = if is_atom(BareField) ->
                         list_to_binary(atom_to_list(BareField));
                     true ->
-                        BareField
+                        list_to_binary(BareField)
                  end,
             case lists:keyfind(Bf, 1, AttrList) of
                 false ->
@@ -75,5 +75,13 @@ extract_value({atom, _}, Value, _Opts) ->
 extract_value({proplist, _}, Value, _Opts) ->
     [{list_to_atom(binary_to_list(Prop)), Val}
      || {Prop, Val} <- Value, Prop =/= <<"__type">>];
+extract_value({field_fun, _, _, {M, F}}, Value, _Opts) ->
+    erlang:apply(M, F, [Value]);
+extract_value({field_fun, _, _, DecFun}, Value, _Opts) ->
+    DecFun(Value);
+extract_value({rec_fun, _, _}, _Value, _Opts) ->
+    undefined;
+extract_value({const, _, _}, _Value, _Opts) ->
+    undefined;
 extract_value(_, Value, _Opts) ->
     Value.

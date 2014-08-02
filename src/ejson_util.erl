@@ -65,7 +65,7 @@ get_field_name({proplist, Field}) ->
     Field;
 get_field_name({const, Field, _}) ->
     Field;
-get_field_name({field_fun, Field, _}) ->
+get_field_name({field_fun, Field, _EncFun, _DecFun}) ->
     Field;
 get_field_name({rec_fun, Field, _}) ->
     Field;
@@ -95,9 +95,9 @@ proper_underscore([]) ->
     true;
 proper_underscore([$_, L | T]) when L >= $a andalso L =< $z ->
     proper_underscore(T);
-proper_underscore([$_ | T]) ->
+proper_underscore([$_ | _T]) ->
     false;
-proper_underscore([L | T]) when L >= $A andalso L =< $Z ->
+proper_underscore([L | _T]) when L >= $A andalso L =< $Z ->
     false;
 proper_underscore([_ | T]) ->
     proper_underscore(T).

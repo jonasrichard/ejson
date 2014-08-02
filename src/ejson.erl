@@ -22,7 +22,9 @@
 
 -export([
         to_json/2,
+        to_json_modules/2,
         from_json/2,
+        from_json_modules/2,
         json_props/1
     ]).
 
@@ -30,18 +32,22 @@
 %%% External API functions
 %%%============================================================================
 
-%%to_json_modules(Term, ModuleList) ->
-%%    Opts = json_props(ModuleList),
-%%    
-%%    to_json(Term, Opts).
-%%
-%%to_json_module(Term, Module) ->
-%%    %% Get -json attributes from module info
-%%    Opts = json_props([Module]),
-%%
-%%    %% Call to_json with the Options we got
-%%    to_json(Term, Opts).
-%%
+to_json_modules(Term, ModuleList) ->
+    Opts = json_props(ModuleList),
+    to_json(Term, Opts).
+
+to_json(Term, Opts) ->
+    Encoded = ejson_encode:encode(Term, Opts),
+    jsx:encode(Encoded).
+
+from_json_modules(Binary, ModuleList) ->
+    Opts = json_props(ModuleList),
+    from_json(Binary, Opts).
+
+from_json(Binary, Opts) ->
+    Decoded = jsx:decode(Binary),
+    ejson_decode:decode(Decoded, Opts).
+
 json_props(ModuleList) ->
     lists:foldl(
         fun(Module, Acc) ->
@@ -50,11 +56,3 @@ json_props(ModuleList) ->
 
             Opts ++ Acc
         end, [], ModuleList).
-
-to_json(Term, Opts) ->
-    Encoded = ejson_encode:encode(Term, Opts),
-    jsx:encode(Encoded).
-
-from_json(Binary, Opts) ->
-    Decoded = jsx:decode(Binary),
-    ejson_decode:decode(Decoded, Opts).
