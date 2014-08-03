@@ -99,7 +99,7 @@ apply_rule({list, AttrName}, _Tuple, Value, Opts) ->
     List = [encode1(V, Opts) || V <- Value],
     {AttrName, List};
 apply_rule({proplist, AttrName}, _Tuple, Value, _Opts) ->
-    Vals = [{?BIN(Prop), Val} || {Prop, Val} <- Value],
+    Vals = [{ejson_util:atom_to_binary_cc(Prop), Val} || {Prop, Val} <- Value],
     {AttrName, [{<<"__type">>, <<"proplist">>} | Vals]};
 apply_rule({field_fun, AttrName, {M, F}, _}, _Tuple, Value, Opts) ->
     Val = erlang:apply(M, F, [Value]),

@@ -3,7 +3,13 @@ ERL_APPS = erts \
 		   kernel \
 		   stdlib
 
-.PHONY: analyze
+.PHONY: analyze compile test
+
+compile:
+	./rebar compile
+
+test:
+	./rebar eunit apps=ejson
 
 .dialyzer_plt:
 	dialyzer --output_plt $@ --build_plt --apps $(ERL_APPS) deps/jsx/ebin
