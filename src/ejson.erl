@@ -27,13 +27,11 @@ to_json_module(Term, Module) ->
     to_json(Term, Opts).
 
 json_props(ModuleList) ->
-    lists:foldl(
-        fun(Module, Acc) ->
+    lists:flatmap(
+        fun(Module) ->
             Attrs = proplists:get_value(attributes, Module:module_info()),
-            Opts = lists:flatten([V || {json, V} <- Attrs]),
-
-            Opts ++ Acc
-        end, [], ModuleList).
+            _Opts = [V || {json, V} <- Attrs]
+        end, ModuleList).
 
 %%-----------------------------------------------------------------------------
 %% @doc Convert Term to json with the Options passed.
@@ -57,7 +55,7 @@ json_props(ModuleList) ->
 %%     pairs like
 %%     [{<<"nickName">>, <<"Jim">>}, {<<"numberOfPapers">>, <<"120">>}].
 %%
-%%     Later it can be feed into jsx:encode().
+%%     Later it can be fed into jsx:encode().
 %%
 %%   - FieldName can be {list, Name}. In that case the field in the tuple
 %%     will be treated as a list.
@@ -73,7 +71,7 @@ conv(Tuple, Options) when is_tuple(Tuple) ->
     [RecName | Vals] = erlang:tuple_to_list(Tuple),
     
     %% Get the options for that record
-    FieldNames = proplists:get_value(RecName, Options),
+    [FieldNames] = proplists:get_all_values(RecName, Options),
 
     %% Convert each values
     lists:reverse(
