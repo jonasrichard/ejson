@@ -28,27 +28,6 @@ walk([{attribute, _Line, json, RecordSpec} = Attr | T], A, R) ->
 walk([H | T], A, R) ->
     walk(T, [H | A], R).
 
-%% Convert json attribute to AST format
-field_list([], _Line) ->
-    [];
-%%field_list([{list, H} | T], Line) ->
-%%    {cons, Line,
-%%        {tuple, Line, [{atom, Line, list}, {string, Line, H}]},
-%%        field_list(T, Line)};
-field_list([AtomName | T], Line) when is_atom(AtomName) ->
-    [{atom, Line, AtomName} | field_list(T, Line)].
-
-record_to_ast(RecordSpec, Line) ->
-    [RecordName | Fields] = tuple_to_list(RecordSpec),
-    ?D(Fields),
-    {tuple, Line,
-        [{atom, Line, RecordName} | field_list(Fields, Line)]}.
-
-record_list_to_ast([], Line) ->
-    {nil, Line};
-record_list_to_ast([H | T], Line) ->
-    {cons, Line, record_to_ast(H, Line), record_list_to_ast(T, Line)}.
-
 gen_fun(Records, Line) ->
     ?D(Records),
     {function, Line, to_json, 1,
@@ -56,7 +35,10 @@ gen_fun(Records, Line) ->
             [{call, Line,
                 {remote, Line, {atom, Line, ejson}, {atom, Line, to_json}},
                 [{var, Line, 'P'},
-                 record_list_to_ast(Records, Line)]}]}]}.
+                 erl_parse:abstract(Records, [{line, Line}])]
+            }]
+        }]
+    }.
 
 get_eof_line([]) ->
     1;
