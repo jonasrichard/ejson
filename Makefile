@@ -3,7 +3,7 @@ ERL_APPS = erts \
 		   kernel \
 		   stdlib
 
-.PHONY: analyze compile test
+.PHONY: analyze compile example test
 
 compile:
 	./rebar compile
@@ -16,4 +16,3 @@ test:
 
 analyze: .dialyzer_plt
 	dialyzer --no_check_plt --no_native -Wrace_conditions --plt $< --apps ebin
-

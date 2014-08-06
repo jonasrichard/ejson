@@ -53,6 +53,8 @@ get_fields(RecordName, Opts) ->
             Fields
     end.
 
+get_field_name(skip) ->
+    undefined;
 get_field_name({list, Field}) ->
     Field;
 get_field_name({binary, Field}) ->

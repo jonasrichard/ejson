@@ -7,9 +7,7 @@
 -define(D(Val), io:format("~s: ~p~n", [??Val, Val])).
 
 parse_transform(AstIn, _Options) ->
-    ?D(AstIn),
     Out = walk(AstIn),
-    %%io:format("~p~n", [Out]),
     Out.
 
 walk(Ast) ->
@@ -18,22 +16,23 @@ walk(Ast) ->
 
     {eof, LastLine} = hd(AstOut),
     
-    lists:reverse([{eof, LastLine}, gen_fun(Records, EofLine) | tl(AstOut)]).
+    lists:reverse([{eof, LastLine},
+                   gen_fun(to_json, Records, EofLine),
+                   gen_fun(from_json, Records, EofLine)
+                   | tl(AstOut)]).
 
 walk([], AstOut, Records) ->
     {AstOut, Records};
 walk([{attribute, _Line, json, RecordSpec} = Attr | T], A, R) ->
-    ?D(RecordSpec),
     walk(T, [Attr | A], [RecordSpec | R]);
 walk([H | T], A, R) ->
     walk(T, [H | A], R).
 
-gen_fun(Records, Line) ->
-    ?D(Records),
-    {function, Line, to_json, 1,
+gen_fun(Name, Records, Line) ->
+    {function, Line, Name, 1,
         [{clause, Line, [{var, Line, 'P'}], [],
             [{call, Line,
-                {remote, Line, {atom, Line, ejson}, {atom, Line, to_json}},
+                {remote, Line, {atom, Line, ejson}, {atom, Line, Name}},
                 [{var, Line, 'P'},
                  erl_parse:abstract(Records, [{line, Line}])]
             }]

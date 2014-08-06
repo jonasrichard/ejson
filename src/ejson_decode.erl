@@ -30,8 +30,12 @@ decode(AttrList, Opts) ->
                 {error, _} = Error ->
                     Error;
                 Fields ->
-                    Values = extract_fields(Fields, AttrList, Opts),
-                    list_to_tuple([RecordName | Values])
+                    case extract_fields(Fields, AttrList, Opts) of
+                        {error, _} = Error ->
+                            Error;
+                        Values ->
+                            list_to_tuple([RecordName | Values])
+                    end
             end;
         false ->
             {error, no_record_name}
@@ -41,7 +45,7 @@ extract_fields([], _, _) ->
     [];
 extract_fields([Field | F], AttrList, Opts) ->
     case ejson_util:get_field_name(Field) of
-        skip ->
+        undefined ->
             [undefined | extract_fields(F, AttrList, Opts)];
         BareField ->
             Bf = if is_atom(BareField) ->

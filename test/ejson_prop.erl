@@ -63,58 +63,8 @@ fconv(X) ->
 rconv(_) ->
     1.
 
-%%basic_value(skip, _) ->
-%%    undefined;
-%%basic_value({atom, _}, _) ->
-%%    atom();
-%%basic_value({string, _}, _) ->
-%%    string();
-%%basic_value({binary, _}, _) ->
-%%    binary();
-%%basic_value({list, _}, Rules) ->
-%%    ?LAZY(
-%%        frequency([
-%%            {1, []},
-%%            {1, ?LAZY(record_list(Rules))}
-%%          ]));
-%%basic_value({field_fun, _, _}, _) ->
-%%    conv(undefined);
-%%basic_value({rec_fun, _, _}, _) ->
-%%    conv(undefined);
-%%basic_value({const, _, X}, _) ->
-%%    X;
-%%basic_value(_, Rules) ->
-%%    ?LAZY(frequency([
-%%               {1, integer()},
-%%               {1, float()},
-%%               {1, ?LET({Val, _}, record_value(Rules), Val)}
-%%              ])).
-%%
-%%record_value() ->
-%%    ?LAZY(?LET(Rules,
-%%               non_empty(resize(5, list(record_rule()))),
-%%               record_value(Rules))).
-%%
-%%record_value(Rules) ->
-%%    Rule = pick_one(Rules),
-%%    [RecordName | Fields] = tuple_to_list(Rule),
-%%    FieldGens = [basic_value(Field, Rules) || Field <- Fields],
-%%    
-%%    ?LET(Values, FieldGens,
-%%         begin
-%%             {list_to_tuple([RecordName | Values]), Rules}
-%%         end).
-%%
-%%record_list(Rules) ->
-%%    ?LET(List, list(record_value(Rules)),
-%%         begin
-%%             [Record || {Record, _Opts} <- List]
-%%         end).
-
 proplist() ->
     list({symb_name(), integer()}).
-
-%%----
 
 basic(skip, _Rules, _Depth) ->
     undefined;
@@ -181,18 +131,6 @@ equal(Expected, Actual, Opts) ->
               end
       end, lists:zip3(Exps, Acts, Fields)).
 
-%%----
-
-pro_gen() ->
-    ?FORALL(Rules, non_empty(resize(5, list(record_rule()))),
-        ?FORALL(Record, value(pick_one(Rules), Rules, 0),
-            begin
-%%                ?debugVal(Rules),
-%%                ?debugVal(Record),
-                true
-            end)).
-
-
 prop_encode_decode() ->
     ?FORALL(Rules, non_empty(resize(5, list(record_rule()))),
         ?FORALL(Record, value(pick_one(Rules), Rules, 0),
@@ -232,7 +170,7 @@ pro_proplist_enc_dec() ->
                 end
             end).
 
-pro_camel_case() ->
+prop_camel_case() ->
     ?FORALL(Name, 
         ?SUCHTHAT(R, record_name(), ejson_util:is_name_convertable(R)),
             begin
@@ -240,7 +178,7 @@ pro_camel_case() ->
                 ejson_util:binary_to_atom_cc(CC) =:= Name
             end).
 
-pro_zip() ->
+prop_zip() ->
     ?FORALL({A, B}, {list(), list()},
             begin
                 Zip = ejson_util:zip(A, B),

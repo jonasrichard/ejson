@@ -99,7 +99,12 @@ apply_rule({list, AttrName}, _Tuple, Value, Opts) ->
     List = [encode1(V, Opts) || V <- Value],
     {AttrName, List};
 apply_rule({proplist, AttrName}, _Tuple, Value, _Opts) ->
-    Vals = [{ejson_util:atom_to_binary_cc(Prop), Val} || {Prop, Val} <- Value],
+    Vals = lists:map(
+      fun({Prop, Val}) ->
+              {ejson_util:atom_to_binary_cc(Prop), Val};
+         (Prop) ->
+              {ejson_util:atom_to_binary_cc(Prop), true}
+      end, Value),
     {AttrName, [{<<"__type">>, <<"proplist">>} | Vals]};
 apply_rule({field_fun, AttrName, {M, F}, _}, _Tuple, Value, Opts) ->
     Val = erlang:apply(M, F, [Value]),
@@ -124,10 +129,21 @@ check_duplicate_fields([]) ->
     false;
 check_duplicate_fields([Rule | Rules]) ->
     [_ | Fields] = tuple_to_list(Rule),
-    Names = [ejson_util:get_field_name(Field) || Field <- Fields],
+    FieldNames = [field_name(Field) || Field <- Fields],
+    Names = [F || F <- FieldNames, F =/= undefined],
     case lists:sort(Names) =:= lists:usort(Names) of
         true ->
             check_duplicate_fields(Rules);
         false ->
             true
+    end.
+
+field_name(Field) ->
+    case ejson_util:get_field_name(Field) of
+        undefined ->
+            undefined;
+        Name when is_atom(Name) ->
+            ejson_util:atom_to_binary_cc(Name);
+        List when is_list(List) ->
+            list_to_binary(List)
     end.

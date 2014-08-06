@@ -3,4 +3,9 @@
 -compile([export_all]).
 
 json_prop(Json, PropName) ->
-    proplists:get_value(list_to_binary(PropName), Json).
+    case lists:keyfind(list_to_binary(PropName), 1, Json) of
+        false ->
+            undefined;
+        {_, Value} ->
+            Value
+    end.

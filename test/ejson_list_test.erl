@@ -27,7 +27,7 @@ list_test() ->
 
 proplist_test() ->
     Square = {shape, square, [{a, 10}]},
-    Circle = {shape, circle, [{radius, 5}]},
+    Circle = {shape, circle, [{radius, 5}, filled]},
     Rect = {shape, rect, [{x_left, 10}, {y_left, 15},
                           {x_right, 50}, {y_right, 30}]},
 
@@ -48,8 +48,6 @@ proplist_test() ->
     ?assertEqual(<<"circle">>, json_prop(S2, "type")),
     S2d = json_prop(S2, "data"),
     ?assertEqual(5, json_prop(S2d, "radius")),
-
-    ?debugVal(S3),
 
     ?assertEqual(<<"rect">>, json_prop(S3, "type")),
     S3d = json_prop(S3, "data"),
