@@ -138,7 +138,7 @@ Its JSON form is
 
 Let us suppose that we have an eventing system and we want to add an event type but only to the JSON and this information isn't in the record to be converted. Then we can add a constant field containing the type information.
 
-```
+```erlang
 -json({event, {atom, source}, {const, type, "databaseEvent"}}).
 
 ejons:to_json({event, 'node1@127.0.0.1'}).
@@ -189,7 +189,7 @@ The result is
 
 Another example using `field_fun` to convert times.
 
-```
+```erlang
 -json({event, id, {field_fun, time, {?MODULE, to_jstime},
                                     {?MODULE, from_jstime}}}).
 
