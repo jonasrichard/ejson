@@ -57,6 +57,8 @@ get_field_name(skip) ->
     undefined;
 get_field_name({list, Field}) ->
     Field;
+get_field_name({list, Field, _Type}) ->
+    Field;
 get_field_name({binary, Field}) ->
     Field;
 get_field_name({string, Field}) ->

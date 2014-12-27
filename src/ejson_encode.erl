@@ -98,6 +98,8 @@ apply_rule({string, AttrName}, _Tuple, Value, _Opts) ->
 apply_rule({list, AttrName}, _Tuple, Value, Opts) ->
     List = [encode1(V, Opts) || V <- Value],
     {AttrName, List};
+apply_rule({list, AttrName, _Type}, Tuple, Value, Opts) ->
+    apply_rule({list, AttrName}, Tuple, Value, Opts);
 apply_rule({proplist, AttrName}, _Tuple, Value, _Opts) ->
     Vals = lists:map(
       fun({Prop, Val}) ->

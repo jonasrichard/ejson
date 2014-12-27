@@ -1,12 +1,12 @@
 ## ejson
 
-JSON library for Erlang on top of `jsx`. It gives a declarative interface for `jsx`, we need to specify conversion rules and `ejson` will convert tuples according to the rules.
+JSON library for Erlang on top of `jsx`. It gives a declarative interface for `jsx` by which we need to specify conversion rules and `ejson` will convert tuples according to the rules.
 
 There are API changes from the previous version see the Changelog section at the bottom.
 
 ### Usage
 
-In order for ejson to take effect the source files need to be compiled with `parse_transform` `ejson_trans`. All record which has `-json` attribute will be converted to JSON.
+In order for ejson to take effect the source files need to be compiled with `parse_transform` `ejson_trans`. All record which has `-json` attribute can be converted to JSON later.
 
 ```erlang
 -module(people).
@@ -60,7 +60,7 @@ It will be converted as
 }
 ```
 
-Let us note that in the attribute definition there is not type specified for side. During the data conversion between Erlang and JSON only numbers and booleans can be converted unambiguously. From a JSON string an Erlang string, binary or atom can be extracted. So if we are dealing with those data types we need to specify the target type (which is really useful when we are decoding from JSON).
+Let us note that in the attribute definition there isn't any type specified for `side` field. During the data conversion between Erlang and JSON only numbers and booleans can be converted unambiguously. From a JSON string either an Erlang string, binary or atom can be extracted. So if we are dealing with those data types we need to specify the target type in order that when a JSON will be decoded the fields can be decoded to the proper data types.
 
 ```erlang
 -json({person, {string, name}, {atom, sex}, age, {binary, id}}).
@@ -207,6 +207,20 @@ from_jstime(JsTime) ->
 ejson:to_json({event, 300, {{1460, 1329112, 706500}}}).
 ```
 
+### Target types
+
+When we deal with JSONs which weren't encoded with `ejson` there won't be any type meta information such as `__rec` or `__type`. In that case we need to either specify the target type when decoding, or we need to specify the target types in the decoding rules.
+
+```erlang
+-json({author, {string, name}}).
+-json({book, {string, title}, {list, "authors", author}}).
+
+...
+ejson:from_json(Json, Opts, book).
+```
+
+In the list rule the 3rd element of the tuple is the target types of the elements. During conversion we also need to specify the target type of the whole data set (which is book in the example). It is useful when the JSON doesn't contain any type information, so `ejson` doesn't have clue which target types it needs to choose.
+
 ### Using without parse transform
 
 If one doesn't want to use parse transform for any reason, it is still possible to use ejson but you need to pass the module atom list in order that ejson can detect the `-json` attributes.
@@ -234,5 +248,5 @@ convert_list(List) ->
 ### Changelog
 
 * Field rule specifications are no longer in a list `-json({record, [field1, field2]})` is simplified to `-json({record, field1, field2})`.
-* Converter generate a JSON field describing the source record of the data. The `__rec`` field contains the record name, which is useful for decoding.
+* Converter generate a JSON field describing the source record of the data. The `__rec` field contains the record name, which is useful for decoding.
 * Encoded proplists also contain type field `__type` which the decoder know what is the target type.
