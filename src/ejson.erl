@@ -4,6 +4,8 @@
         to_json/2,
         to_json_module/2,
         to_json_modules/2,
+        to_json_term/2,
+        to_json_term_module/2,
         json_props/1
     ]).
 
@@ -25,6 +27,13 @@ to_json_module(Term, Module) ->
 
     %% Call to_json with the Options we got
     to_json(Term, Opts).
+
+to_json_term_module(Term, Module) ->
+    %% Get -json attributes from module info
+    Opts = json_props([Module]),
+
+    %% Call to_json with the Options we got
+    to_json_term(Term, Opts).
 
 json_props(ModuleList) ->
     lists:foldl(
@@ -67,6 +76,9 @@ json_props(ModuleList) ->
 to_json(Term, Options) ->
     Enc = conv(Term, Options),
     jsx:encode(Enc).
+
+to_json_term(Term, Options) ->
+    conv(Term, Options).
 
 conv(Tuple, Options) when is_tuple(Tuple) ->
     %% Get record name and values from the tuple
