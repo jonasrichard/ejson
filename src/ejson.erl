@@ -135,6 +135,9 @@ apply_rule({field_fun, Name, {M, F}}, _Record, Value, Options) ->
 apply_rule({rec_fun, Name, {M, F}}, Record, _Value, Options) ->
     Value2 = erlang:apply(M, F, [Record]),
     {Name, conv(Value2, Options)};
+apply_rule({field_fun_json_term, Name, {M, F}}, _Record, Value, _Options) ->
+    Value2 = erlang:apply(M, F, [Value]),
+    {Name, Value2};
 apply_rule({const, Name, Const}, _Record, _Value, Options) ->
     {Name, conv(Const, Options)};
 apply_rule(Name, _Record, Value, Options) ->
