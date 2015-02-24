@@ -41,16 +41,21 @@
 
 encode(Value, Opts) ->
     RecordNames = [element(1, Opt) || Opt <- Opts],
-    case lists:sort(RecordNames) =:= lists:usort(RecordNames) of
-        true ->
+    case lists:sort(RecordNames) -- lists:usort(RecordNames) of
+        [] ->
             case check_duplicate_fields(Opts) of
-                true ->
-                    {error, duplicate_field_name};
-                false ->
-                    encode1(Value, Opts)
+                [] ->
+                    case encode1(Value, Opts) of
+                        {error, _} = Error ->
+                            Error;
+                        Result ->
+                            {ok, Result}
+                    end;
+                Fs ->
+                    {error, {duplicate_fields, Fs}}
             end;
-        false ->
-            {error, duplicate_record_names}
+        Rs ->
+            {error, {duplicate_records, lists:usort(Rs)}}
     end.
 
 %% Convert a record
@@ -127,17 +132,20 @@ apply_rule(AttrName, _Tuple, Value, Opts) when is_tuple(Value) ->
 apply_rule(AttrName, _Tuple, Value, _Opts) when is_number(Value) ->
     {AttrName, Value}.
 
+%% Check duplicate fields in record definition. It gives false if each field is
+%% unique, otherwise it gives the duplicate field names.
+-spec check_duplicate_fields(list()) -> false | list(atom()).
 check_duplicate_fields([]) ->
-    false;
+    [];
 check_duplicate_fields([Rule | Rules]) ->
     [_ | Fields] = tuple_to_list(Rule),
     FieldNames = [field_name(Field) || Field <- Fields],
     Names = [F || F <- FieldNames, F =/= undefined],
-    case lists:sort(Names) =:= lists:usort(Names) of
-        true ->
+    case lists:sort(Names) -- lists:usort(Names) of
+        [] ->
             check_duplicate_fields(Rules);
-        false ->
-            true
+        DupFields ->
+            DupFields
     end.
 
 field_name(Field) ->

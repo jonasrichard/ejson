@@ -12,7 +12,7 @@ list_test() ->
     Book2 = {book, "TDD - the easy way", 760},
     Person = {person, "Sam", [Book1, Book2]},
 
-    J = ejson_encode:encode(Person, Options),
+    {ok, J} = ejson_encode:encode(Person, Options),
 
     ?assertEqual(<<"Sam">>, json_prop(J, "name")),
 
@@ -34,7 +34,7 @@ proplist_test() ->
     Options = [{shape, {atom, "type"}, {proplist, "data"}},
                {shapes, {list, "shapes"}}],
     
-    Shapes = ejson_encode:encode({shapes, [Square, Circle, Rect]}, Options),
+    {ok, Shapes} = ejson_encode:encode({shapes, [Square, Circle, Rect]}, Options),
     
     Ss = json_prop(Shapes, "shapes"),
     ?assertEqual(3, length(Ss)),

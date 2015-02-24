@@ -36,6 +36,7 @@
 %%% External API functions
 %%%============================================================================
 
+-spec to_json_modules(term(), [module()]) -> binary().
 to_json_modules(Term, ModuleList) ->
     Opts = json_props(ModuleList),
     to_json(Term, Opts).
@@ -45,7 +46,12 @@ to_jsx_modules(Term, ModuleList) ->
     to_jsx(Term, Opts).
 
 to_json(Term, Opts) ->
-    jsx:encode(to_jsx(Term, Opts)).
+    case to_jsx(Term, Opts) of
+        {ok, Result} ->
+            jsx:encode(Result);
+        {error, _} = Error ->
+            Error
+    end.
 
 to_jsx(Term, Opts) ->
     ejson_encode:encode(Term, Opts).

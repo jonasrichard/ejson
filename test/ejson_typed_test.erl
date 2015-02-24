@@ -7,7 +7,7 @@ specified_rec_type_test() ->
             {author, {string, name}}],
     Rec = {book, "History of Rome", [{author, "John Smith"},
                                      {author, "Bob Doe"}]},
-    J = ejson:to_jsx(Rec, Opts),
+    {ok, J} = ejson:to_jsx(Rec, Opts),
     
     % Remove __rec type information
     J2 = deep_delete_rec(J),

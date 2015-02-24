@@ -142,7 +142,7 @@ prop_encode_decode() ->
                         true;
                     {error, duplicate_field_name} ->
                         true;
-                    Enc ->
+                    {ok, Enc} ->
 %%                        ?debugVal(Enc),
                         Dec = ejson_decode:decode(shuffle(Enc), Rules),
 %%                        ?debugVal(Dec),
@@ -159,7 +159,7 @@ pro_proplist_enc_dec() ->
                 case ejson_encode:encode(Record, Rules) of
                     {error, duplicate_property} ->
                         true;
-                    Enc ->
+                    {ok, Enc} ->
                         %%?debugVal(Enc),
                         {simple, D} = ejson_decode:decode(shuffle(Enc), Rules),
                         %%?debugVal(D),
