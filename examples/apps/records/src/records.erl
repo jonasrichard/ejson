@@ -21,5 +21,5 @@ start() ->
     
     io:format("~s~n", [to_json(P)]).
 
-sum_hours({person, _Name, Subjects, _}) ->
+sum_hours({person, _Name, _Subjects, _}) ->
     0.

@@ -45,10 +45,11 @@ to_jsx_modules(Term, ModuleList) ->
     Opts = json_props(ModuleList),
     to_jsx(Term, Opts).
 
+-spec to_json(term(), list()) -> {ok, jsx:jsx_term()} | {error, term()}.
 to_json(Term, Opts) ->
     case to_jsx(Term, Opts) of
         {ok, Result} ->
-            jsx:encode(Result);
+            {ok, jsx:encode(Result)};
         {error, _} = Error ->
             Error
     end.
