@@ -25,7 +25,7 @@ duplicate_field_test_() ->
     F = fun(Opt) ->
             Result = ejson_encode:encode(1, Opt),
             io:format("~p~n", [Result]),
-            {error, {duplicate_fields, [a]}} =:= Result
+            {error, {duplicate_fields, [<<"a">>]}} =:= Result
         end,
     [
      ?_assert(F([{rec, a, a}])),

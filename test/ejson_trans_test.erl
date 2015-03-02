@@ -8,8 +8,8 @@
 
 all_test_() ->
     Record = {square, 50},
-    Json = to_json(Record),
+    {ok, Json} = to_json(Record),
     ?debugVal(Json),
-    Square = from_json(Json),
+    {ok, Square} = from_json(Json),
     ?debugVal(Square),
     ?_assert(Record =:= Square).

@@ -23,8 +23,9 @@
 -export([encode/2]).
 
 %% TODO: conditional macro for atom_to_binary
--define(BIN(Atom), if is_atom(Atom) -> list_to_binary(atom_to_list(Atom));
-                      true          -> list_to_binary(Atom)
+-define(BIN(Name), if is_atom(Name) -> list_to_binary(atom_to_list(Name));
+                      true          -> list_to_binary(Name)
+                          %%{error, {atom_expected, Name}}
                    end).
 
 %%------------------------------------------------------------------------------
@@ -39,6 +40,9 @@
 %%     a string or to an atom.
 %%------------------------------------------------------------------------------
 
+-spec encode(term(), list()) -> {ok, jsx:json_term()} |
+                                {error, {duplicate_records, list(atom())}} |
+                                {error, {duplicate_fields, list(binary())}}. 
 encode(Value, Opts) ->
     RecordNames = [element(1, Opt) || Opt <- Opts],
     case lists:sort(RecordNames) -- lists:usort(RecordNames) of
@@ -88,6 +92,8 @@ convert([{Name, Value} | T], Tuple, Opts, Result) ->
     case apply_rule(Name, Tuple, Value, Opts) of
         undefined ->
             convert(T, Tuple, Opts, Result);
+        {error, _} = Error ->
+            Error;
         {NewName, NewValue} ->
             convert(T, Tuple, Opts, [{?BIN(NewName), NewValue} | Result])
     end.
@@ -96,8 +102,12 @@ apply_rule(skip, _Tuple, _Value, _Opts) ->
     undefined;
 apply_rule({atom, AttrName}, _Tuple, Value, _Opts) when is_atom(Value) ->
     {AttrName, ?BIN(Value)};
+apply_rule({atom, AttrName}, _Tuple, Value, _Opts) ->
+    {error, {atom_value_expected, AttrName, Value}};
 apply_rule({binary, AttrName}, _Tuple, Value, _Opts) when is_binary(Value) ->
     {AttrName, Value};
+apply_rule({binary, AttrName}, _Tuple, Value, _Opts) ->
+    {error, {binary_value_expected, AttrName, Value}};
 apply_rule({string, AttrName}, _Tuple, Value, _Opts) ->
     {AttrName, unicode:characters_to_binary(Value)};
 apply_rule({list, AttrName}, _Tuple, Value, Opts) ->
