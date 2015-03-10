@@ -73,6 +73,10 @@ from_json(Binary, Opts, Record) ->
     Decoded = jsx:decode(Binary),
     ejson_decode:decode(Decoded, Opts, Record).
 
+%%%----------------------------------------------------------------------------
+%%% @doc Get json attributes from the specified modules
+%%% @end
+%%%----------------------------------------------------------------------------
 json_props(ModuleList) ->
     lists:foldl(
         fun(Module, Acc) ->

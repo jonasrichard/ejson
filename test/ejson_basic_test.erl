@@ -27,5 +27,5 @@ field_fun_test_() ->
     Opts = [{time, {field_fun, "jsTime", Enc, Dec}}],
     Record = {time, 2300},
     {ok, E} = ejson_encode:encode(Record, Opts),
-    D = ejson_decode:decode(E, Opts),
+    {ok, D} = ejson_decode:decode(E, Opts),
     ?_assert(Record =:= D).

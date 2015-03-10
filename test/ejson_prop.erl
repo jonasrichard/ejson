@@ -138,13 +138,13 @@ prop_encode_decode() ->
 %%                ?debugVal(Rules),
 %%                ?debugVal(Record),
                 case ejson_encode:encode(Record, Rules) of
-                    {error, duplicate_record_names} ->
+                    {error, {duplicate_records, R}} when is_list(R) ->
                         true;
-                    {error, duplicate_field_name} ->
+                    {error, {duplicate_fields, F}} when is_list(F) ->
                         true;
                     {ok, Enc} ->
 %%                        ?debugVal(Enc),
-                        Dec = ejson_decode:decode(shuffle(Enc), Rules),
+                        {ok, Dec} = ejson_decode:decode(shuffle(Enc), Rules),
 %%                        ?debugVal(Dec),
                         equal(Record, Dec, Rules)
                 end

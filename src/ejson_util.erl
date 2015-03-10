@@ -44,6 +44,11 @@ is_name_convertable(Atom) when is_atom(Atom) ->
 is_name_convertable(String) ->
     start_with_char(String) andalso proper_underscore(String).
 
+%%-----------------------------------------------------------------------------
+%% @doc Get attributes of a record, or error if no such record.
+%% @end
+%%-----------------------------------------------------------------------------
+-spec get_fields(atom(), term()) -> list() | {error, {no_such_record, atom()}}.
 get_fields(RecordName, Opts) ->
     case lists:keyfind(RecordName, 1, Opts) of
         false ->

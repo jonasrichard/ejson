@@ -23,6 +23,18 @@
 -export([decode/2,
          decode/3]).
 
+%% TODO:
+%% exact_value should return with {ok, Value} or {error, Reason}, so
+%% every time when we extract, we also need to case pattern match.
+%% So in the end we don't need decode and decode1 wrappers to generate
+%% {ok, Value}, etc.
+
+%%-----------------------------------------------------------------------------
+%% @doc Decode JSON from jsx attrlist.
+%% Calling this function AttrList has one such element which contains type
+%% information about the target type (__rec or so).
+%% @end
+%%-----------------------------------------------------------------------------
 decode(AttrList, Opts) ->
     case lists:keyfind(<<"__rec">>, 1, AttrList) of
         {_, Rec} ->
@@ -32,8 +44,25 @@ decode(AttrList, Opts) ->
             {error, no_record_name}
     end.
 
-%% When we have proper target record name (3rd parameter as atom)
 decode(AttrList, Opts, RecordName) ->
+    case decode1(AttrList, Opts, RecordName) of
+        {error, _} = Error ->
+            Error;
+        Result ->
+            {ok, Result}
+    end.
+
+decode1(AttrList, Opts) ->
+    case lists:keyfind(<<"__rec">>, 1, AttrList) of
+        {_, Rec} ->
+            RecordName = list_to_atom(binary_to_list(Rec)),
+            decode1(AttrList, Opts, RecordName);
+        false ->
+            {error, no_record_name}
+    end.
+
+%% When we have proper target record name (3rd parameter as atom)
+decode1(AttrList, Opts, RecordName) ->
     case ejson_util:get_fields(RecordName, Opts) of
         {error, _} = Error ->
             Error;
@@ -73,12 +102,12 @@ extract_value({list, _}, Value, Opts) ->
          _ when is_number(V) ->
              V;
          _ ->
-             decode(V, Opts)
+             decode1(V, Opts)
      end || V <- Value];
 extract_value({list, _, Type}, Value, Opts) ->
     T = list_to_binary(atom_to_list(Type)),
     %% Add record meta info to each element of the list
-    [decode([{<<"__rec">>, T} | V], Opts) || V <- Value];
+    [decode1([{<<"__rec">>, T} | V], Opts) || V <- Value];
 extract_value({binary, _}, Value, _Opts) ->
     Value;
 extract_value({string, _}, Value, _Opts) ->

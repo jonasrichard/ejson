@@ -3,7 +3,10 @@ ERL_APPS = erts \
 		   kernel \
 		   stdlib
 
-.PHONY: analyze compile example test
+.PHONY: analyze compile clean example test
+
+clean:
+	./rebar clean
 
 compile:
 	./rebar compile
