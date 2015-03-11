@@ -187,7 +187,7 @@ The result is
 }
 ```
 
-Another example using `field_fun` to convert times.
+Another example using `field\_fun` to convert times.
 
 ```erlang
 -json({event, id, {field_fun, time, {?MODULE, to_jstime},
@@ -233,7 +233,7 @@ handle_req(Id) ->
 
 ### Caching module attributes
 
-Sometimes you don't want to collect the module attributes and filter the json wild attributes for one thousand elements one by one. So there is a possibility to collect them manually and pass them to `to_json/2` function.
+Sometimes you don't want to collect the module attributes and filter the json wild attributes for one thousand elements one by one. So there is a possibility to collect them manually and pass them to `to\_json/2` function.
 
 ```erlang
 convert_list(List) ->
@@ -245,8 +245,12 @@ convert_list(List) ->
         List).
 ```
 
-### Changelog
+### Changelog from 0.1.x
 
 * Field rule specifications are no longer in a list `-json({record, [field1, field2]})` is simplified to `-json({record, field1, field2})`.
 * Converter generate a JSON field describing the source record of the data. The `__rec` field contains the record name, which is useful for decoding.
 * Encoded proplists also contain type field `__type` which the decoder know what is the target type.
+
+### Changelog from 0.2.0
+
+* All `to` and `from` functions in `ejson` module result in either an `{ok, Result}` or an `{error, Reason}` term. Previously it was `Result` and `{error, Reason}`.  
