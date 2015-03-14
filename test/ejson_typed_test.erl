@@ -13,7 +13,7 @@ specified_rec_type_test() ->
     J2 = deep_delete_rec(J),
     ?debugVal(J2),
     
-    R2 = ejson_decode:decode(J2, Opts, book),
+    {ok, R2} = ejson_decode:decode(J2, Opts, book),
     {book, "History of Rome", Authors} = R2,
     {author, "John Smith"} = hd(Authors).
 

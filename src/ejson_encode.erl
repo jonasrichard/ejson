@@ -129,7 +129,7 @@ apply_rule({field_fun, AttrName, {M, F}, _}, _Tuple, Value, Opts) ->
 apply_rule({field_fun, AttrName, EncFun, _}, _Tuple, Value, Opts) ->
     Val = EncFun(Value),
     {AttrName, encode1(Val, Opts)};
-apply_rule({rec_fun, AttrName, {M, F}, _}, Tuple, _Value, Opts) ->
+apply_rule({rec_fun, AttrName, {M, F}}, Tuple, _Value, Opts) ->
     Val = erlang:apply(M, F, [Tuple]),
     {AttrName, encode1(Val, Opts)};
 apply_rule({rec_fun, AttrName, EncFun, _}, Tuple, _Value, Opts) ->
