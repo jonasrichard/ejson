@@ -71,7 +71,7 @@ get_field_name({const, Field, _}) ->
     Field;
 get_field_name({field_fun, Field, _EncFun, _DecFun}) ->
     Field;
-get_field_name({rec_fun, Field, _}) ->
+get_field_name({rec_fun, Field, _EncFun, _DecFun}) ->
     Field;
 get_field_name(Field) ->
     Field.
