@@ -31,7 +31,7 @@ duplicate_field_test_() ->
      ?_assert(F([{rec, a, a}])),
      ?_assert(F([{rec, {atom, a}, a}])),
      ?_assert(F([{rec, {string, a}, {binary, a}}])),
-     ?_assert(F([{rec, a, {rec_fun, a, f, f2}}])),
+     ?_assert(F([{rec, a, {rec_fun, a, f}}])),
      ?_assert(F([{rec, a, {field_fun, a, ff, ff2}}])),
      ?_assert(F([{rec, {const, a, 1}, {list, a}}]))
     ].

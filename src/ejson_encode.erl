@@ -44,22 +44,16 @@
                                 {error, {duplicate_records, list(atom())}} |
                                 {error, {duplicate_fields, list(binary())}}. 
 encode(Value, Opts) ->
-    RecordNames = [element(1, Opt) || Opt <- Opts],
-    case lists:sort(RecordNames) -- lists:usort(RecordNames) of
-        [] ->
-            case check_duplicate_fields(Opts) of
-                [] ->
-                    case encode1(Value, Opts) of
-                        {error, _} = Error ->
-                            Error;
-                        Result ->
-                            {ok, Result}
-                    end;
-                Fs ->
-                    {error, {duplicate_fields, Fs}}
+    case validate_rules(Opts) of
+        ok ->
+            case encode1(Value, Opts) of
+                {error, _} = Error ->
+                    Error;
+                Result ->
+                    {ok, Result}
             end;
-        Rs ->
-            {error, {duplicate_records, lists:usort(Rs)}}
+        Error2 ->
+            Error2
     end.
 
 %% Convert a record
@@ -85,6 +79,21 @@ encode1(Value, _Opts) when is_number(Value) orelse is_boolean(Value) ->
     Value;
 encode1(undefined, _Opts) ->
     null.
+
+validate_rules(Opts) ->
+    RecordNames = [element(1, Opt) || Opt <- Opts],
+    case lists:sort(RecordNames) -- lists:usort(RecordNames) of
+        [] ->
+            case check_duplicate_fields(Opts) of
+                [] ->
+                    ok;
+                Fields ->
+                    {error, {duplicate_fields, Fields}}
+            end;
+        Records ->
+            {error, {duplicate_records, lists:usort(Records)}}
+    end.
+
 
 convert([], _Tuple, _Opts, Result) ->
     Result;
@@ -132,7 +141,7 @@ apply_rule({field_fun, AttrName, EncFun, _}, _Tuple, Value, Opts) ->
 apply_rule({rec_fun, AttrName, {M, F}}, Tuple, _Value, Opts) ->
     Val = erlang:apply(M, F, [Tuple]),
     {AttrName, encode1(Val, Opts)};
-apply_rule({rec_fun, AttrName, EncFun, _}, Tuple, _Value, Opts) ->
+apply_rule({rec_fun, AttrName, EncFun}, Tuple, _Value, Opts) ->
     Val = EncFun(Tuple),
     {AttrName, encode1(Val, Opts)};
 apply_rule({const, AttrName, Const}, _Tuple, _Value, Opts) ->

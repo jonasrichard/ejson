@@ -45,8 +45,7 @@ rule() ->
                {1, skip},
                {1, {field_fun, field_rule_name(), {?MODULE, fconv},
                                                   {?MODULE, fconv}}},
-               {1, {rec_fun, field_rule_name(), {?MODULE, rconv},
-                                                {?MODULE, rconv}}},
+               {1, {rec_fun, field_rule_name(), {?MODULE, rconv}}},
                {1, {const, field_rule_name(), integer()}}
               ]).
 
@@ -84,7 +83,7 @@ basic({list, Name}, Rules, Depth) ->
               ]);
 basic({const, _Name, Const}, _Rules, _Depth) ->
     Const;
-basic({rec_fun, _Name, _MF1, _MF2}, _Rules, _Depth) ->
+basic({rec_fun, _Name, _MF1}, _Rules, _Depth) ->
     integer();
 basic({field_fun, _Name, _MF1, _MF2}, _Rules, _Depth) ->
     integer();
@@ -121,7 +120,7 @@ equal(Expected, Actual, Opts) ->
                                    Simple =:= binary orelse
                                    Simple =:= string ->
                       Exp =:= Act;
-                  {rec_fun, _, _, _} ->
+                  {rec_fun, _, _} ->
                       true;
                   {field_fun, _, _, _} ->
                       true;
