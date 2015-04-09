@@ -29,3 +29,20 @@ field_fun_test_() ->
     {ok, E} = ejson_encode:encode(Record, Opts),
     {ok, D} = ejson_decode:decode(E, Opts),
     ?_assertEqual(Record, D).
+
+-define(TYPE(Val, Opts, Err),
+        ?_assertEqual(Exp(Val, Err), Enc(Val, Opts))).
+
+type_fail_test_() ->
+    Opts1 = [{request, {atom, "method"}}],
+    Opts2 = [{request, {binary, "method"}}],
+
+    Enc = fun(V, O) -> ejson_encode:encode({request, V}, O) end,
+    Exp = fun(V, E) -> {error, {E, "method", V}} end,
+
+    %% Test when atom is expected but other data are passed
+    [?TYPE("string", Opts1, atom_value_expected),
+     ?TYPE(1, Opts1, atom_value_expected),
+     ?TYPE(<<"apple">>, Opts1, atom_value_expected),
+     ?TYPE("test", Opts2, binary_value_expected),
+     ?TYPE(3, Opts2, binary_value_expected)].

@@ -16,6 +16,21 @@
 %%% @author Richard Jonas <mail@jonasrichard.hu>
 %%% @doc
 %%% ejson main module
+%%%
+%%% This module contains the main entry points of the library such as
+%%% encoding, decoding. Those functions can result in jsx terms or binaries.
+%%%
+%%% Encoding rules can be defined as wild attributes.
+%%%
+%%% ```
+%%% -json({record_name, rule1, rule2, ...}).
+%%% '''
+%%%
+%%% - skip
+%%%   skip the value, don't include it in the json output
+%%% - {atom, name}
+%%%   Value is an atom, it will be converted to string according. The field
+%%%   name will be the name specified.
 %%% @end
 %%%-----------------------------------------------------------------------------
 -module(ejson).
