@@ -16,3 +16,9 @@ test:
 
 analyze: .dialyzer_plt
 	dialyzer --no_check_plt --no_native -Wrace_conditions --plt $< --apps ebin
+
+example:
+	cd examples; \
+	../rebar -C rebar.config compile;
+	erl -pz deps/jsx/ebin ebin examples/apps/records/ebin -noshell -s records -s init stop
+

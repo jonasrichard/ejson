@@ -119,9 +119,11 @@ apply_rule({binary, AttrName}, _Tuple, Value, _Opts) ->
     {error, {binary_value_expected, AttrName, Value}};
 apply_rule({string, AttrName}, _Tuple, Value, _Opts) ->
     {AttrName, unicode:characters_to_binary(Value)};
-apply_rule({list, AttrName}, _Tuple, Value, Opts) ->
+apply_rule({list, AttrName}, _Tuple, Value, Opts) when is_list(Value) ->
     List = [encode1(V, Opts) || V <- Value],
     {AttrName, List};
+apply_rule({list, AttrName}, _Tuple, Value, _Opts) ->
+    {error, {list_value_expected, AttrName, Value}};
 apply_rule({list, AttrName, _Type}, Tuple, Value, Opts) ->
     apply_rule({list, AttrName}, Tuple, Value, Opts);
 apply_rule({proplist, AttrName}, _Tuple, Value, _Opts) ->

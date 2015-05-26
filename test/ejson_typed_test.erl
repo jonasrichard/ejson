@@ -11,7 +11,6 @@ specified_rec_type_test() ->
     
     % Remove __rec type information
     J2 = deep_delete_rec(J),
-    ?debugVal(J2),
     
     {ok, R2} = ejson_decode:decode(J2, Opts, book),
     {book, "History of Rome", Authors} = R2,

@@ -36,6 +36,7 @@ field_fun_test_() ->
 type_fail_test_() ->
     Opts1 = [{request, {atom, "method"}}],
     Opts2 = [{request, {binary, "method"}}],
+    Opts3 = [{request, {list, "method"}}],
 
     Enc = fun(V, O) -> ejson_encode:encode({request, V}, O) end,
     Exp = fun(V, E) -> {error, {E, "method", V}} end,
@@ -45,4 +46,5 @@ type_fail_test_() ->
      ?TYPE(1, Opts1, atom_value_expected),
      ?TYPE(<<"apple">>, Opts1, atom_value_expected),
      ?TYPE("test", Opts2, binary_value_expected),
-     ?TYPE(3, Opts2, binary_value_expected)].
+     ?TYPE(3, Opts2, binary_value_expected),
+     ?TYPE(1, Opts3, list_value_expected)].

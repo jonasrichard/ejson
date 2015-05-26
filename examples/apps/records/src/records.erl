@@ -12,7 +12,7 @@
        {string, "name"}, 
        {proplist, "meta"},
        "credit",
-       {rec_fun, "sumHours", {?MODULE, sum_hours}, {?MODULE, undef}}
+       {rec_fun, "sumHours", {?MODULE, sum_hours}}
       }).
 
 start() ->
