@@ -36,12 +36,11 @@
 %% @end
 %%-----------------------------------------------------------------------------
 decode(AttrList, Opts) ->
-    case lists:keyfind(<<"__rec">>, 1, AttrList) of
-        {_, Rec} ->
-            RecordName = list_to_atom(binary_to_list(Rec)),
-            decode(AttrList, Opts, RecordName);
-        false ->
-            {error, no_record_name}
+    case decode1(AttrList, Opts) of
+        {error, _} = Error ->
+            Error;
+        Result ->
+            {ok, Result}
     end.
 
 decode(AttrList, Opts, RecordName) ->

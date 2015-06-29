@@ -44,22 +44,16 @@
                                 {error, {duplicate_records, list(atom())}} |
                                 {error, {duplicate_fields, list(binary())}}. 
 encode(Value, Opts) ->
-    RecordNames = [element(1, Opt) || Opt <- Opts],
-    case lists:sort(RecordNames) -- lists:usort(RecordNames) of
-        [] ->
-            case check_duplicate_fields(Opts) of
-                [] ->
-                    case encode1(Value, Opts) of
-                        {error, _} = Error ->
-                            Error;
-                        Result ->
-                            {ok, Result}
-                    end;
-                Fs ->
-                    {error, {duplicate_fields, Fs}}
+    case validate_rules(Opts) of
+        ok ->
+            case encode1(Value, Opts) of
+                {error, _} = Error ->
+                    Error;
+                Result ->
+                    {ok, Result}
             end;
-        Rs ->
-            {error, {duplicate_records, lists:usort(Rs)}}
+        Error2 ->
+            Error2
     end.
 
 %% Convert a record
@@ -86,6 +80,21 @@ encode1(Value, _Opts) when is_number(Value) orelse is_boolean(Value) ->
 encode1(undefined, _Opts) ->
     null.
 
+validate_rules(Opts) ->
+    RecordNames = [element(1, Opt) || Opt <- Opts],
+    case lists:sort(RecordNames) -- lists:usort(RecordNames) of
+        [] ->
+            case check_duplicate_fields(Opts) of
+                [] ->
+                    ok;
+                Fields ->
+                    {error, {duplicate_fields, Fields}}
+            end;
+        Records ->
+            {error, {duplicate_records, lists:usort(Records)}}
+    end.
+
+
 convert([], _Tuple, _Opts, Result) ->
     Result;
 convert([{Name, Value} | T], Tuple, Opts, Result) ->
@@ -110,9 +119,11 @@ apply_rule({binary, AttrName}, _Tuple, Value, _Opts) ->
     {error, {binary_value_expected, AttrName, Value}};
 apply_rule({string, AttrName}, _Tuple, Value, _Opts) ->
     {AttrName, unicode:characters_to_binary(Value)};
-apply_rule({list, AttrName}, _Tuple, Value, Opts) ->
+apply_rule({list, AttrName}, _Tuple, Value, Opts) when is_list(Value) ->
     List = [encode1(V, Opts) || V <- Value],
     {AttrName, List};
+apply_rule({list, AttrName}, _Tuple, Value, _Opts) ->
+    {error, {list_value_expected, AttrName, Value}};
 apply_rule({list, AttrName, _Type}, Tuple, Value, Opts) ->
     apply_rule({list, AttrName}, Tuple, Value, Opts);
 apply_rule({proplist, AttrName}, _Tuple, Value, _Opts) ->

@@ -83,7 +83,7 @@ basic({list, Name}, Rules, Depth) ->
               ]);
 basic({const, _Name, Const}, _Rules, _Depth) ->
     Const;
-basic({rec_fun, _Name, {_M, _F}}, _Rules, _Depth) ->
+basic({rec_fun, _Name, _MF1}, _Rules, _Depth) ->
     integer();
 basic({field_fun, _Name, _MF1, _MF2}, _Rules, _Depth) ->
     integer();

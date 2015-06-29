@@ -1,17 +1,18 @@
 -module(records).
 
 -compile({parse_transform, ejson_trans}).
+-compile(warnings_as_errors).
 
 -export([
          start/0, sum_hours/1
         ]).
 
--json({person, "name", {list, "subjects"}, "creditPoints"}).
+-json({person, {string, "name"}, {list, "subjects"}, "creditPoints"}).
 -json({subject,
-       "name", 
+       {string, "name"}, 
        {proplist, "meta"},
        "credit",
-       {rec_fun, "sumHours", {?MODULE, sum_hours}, {?MODULE, undef}}
+       {rec_fun, "sumHours", {?MODULE, sum_hours}}
       }).
 
 start() ->
@@ -19,7 +20,9 @@ start() ->
     S2 = {subject, "PE", [optional, {lab, 2}], 2},
     P = {person, "Paul Smith", [S1, S2], 15},
     
-    io:format("~s~n", [to_json(P)]).
+    {ok, Json} = to_json(P),
 
-sum_hours({person, _Name, Subjects, _}) ->
+    io:format("~s~n", [Json]).
+
+sum_hours({subject, _, _, _}) ->
     0.
