@@ -3,8 +3,6 @@
 -include_lib("proper/include/proper.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
--type record_name()     :: atom().
-
 all_test() ->
     ?assertEqual([], proper:module(?MODULE, [{to_file, user}])).
 
@@ -171,8 +169,7 @@ pro_proplist_enc_dec() ->
             end).
 
 prop_camel_case() ->
-    ?FORALL(Name, 
-        ?SUCHTHAT(R, record_name(), ejson_util:is_name_convertable(R)),
+    ?FORALL(Name, symb_name(),
             begin
                 CC = ejson_util:atom_to_binary_cc(Name),
                 ejson_util:binary_to_atom_cc(CC) =:= Name

@@ -10,8 +10,10 @@
 -json({person, {string, "name"},
                {string, "address", [{default, "No address"}]}}).
 
-default_test_() ->
+default_test() ->
     B = {book, "Treasure Island", [{person, "Robert Louis Stevenson"}], 1911},
-    Enc = to_json(B),
-    Dec = from_json(Enc),
-    ?debugVal(Dec).
+    {ok, Enc} = to_json(B),
+    ?debugVal(Enc),
+    {ok, Dec} = from_json(Enc),
+    ?debugVal(Dec),
+    {book, _, [{person, _, undefined}], 1911} = Dec.

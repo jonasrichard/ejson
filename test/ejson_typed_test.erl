@@ -3,7 +3,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 specified_rec_type_test() ->
-    Opts = [{book, {string, title}, {list, "authors", author}},
+    Opts = [{book, {string, title}, {list, "authors", [{type, author}]}},
             {author, {string, name}}],
     Rec = {book, "History of Rome", [{author, "John Smith"},
                                      {author, "Bob Doe"}]},

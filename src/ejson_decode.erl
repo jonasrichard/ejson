@@ -79,16 +79,24 @@ extract_fields([], _, _) ->
 extract_fields([Field | F], AttrList, Opts) ->
     case ejson_util:get_field_name(Field) of
         undefined ->
+            %% The skip rule: we haven't included that field in json,
+            %% so we cannot extract any value for it.
             [undefined | extract_fields(F, AttrList, Opts)];
         BareField ->
             Bf = if is_atom(BareField) ->
-                        list_to_binary(atom_to_list(BareField));
+                        atom_to_binary(BareField, utf8);
                     true ->
                         list_to_binary(BareField)
                  end,
             case lists:keyfind(Bf, 1, AttrList) of
                 false ->
-                    {error, {no_value_for, Field}};
+                    %% No value for field, check if we have default
+                    case default_value(Field) of
+                        undefined ->
+                            {error, {no_value_for, Field}};
+                        DefVal ->
+                            [DefVal | extract_fields(F, AttrList, Opts)]
+                    end;
                 {_, Value} ->
                     %% Extract value based on Field rule
                     Extracted = extract_value(Field, Value, Opts),
@@ -96,33 +104,84 @@ extract_fields([Field | F], AttrList, Opts) ->
             end
     end.
 
-extract_value({list, _}, Value, Opts) ->
-    [case V of
-         _ when is_number(V) ->
-             V;
-         _ ->
-             decode1(V, Opts)
-     end || V <- Value];
-extract_value({list, _, Type}, Value, Opts) ->
-    T = list_to_binary(atom_to_list(Type)),
-    %% Add record meta info to each element of the list
-    [decode1([{<<"__rec">>, T} | V], Opts) || V <- Value];
-extract_value({binary, _}, Value, _Opts) ->
-    Value;
-extract_value({string, _}, Value, _Opts) ->
-    unicode:characters_to_list(Value);
-extract_value({atom, _}, Value, _Opts) ->
-    list_to_atom(binary_to_list(Value));
-extract_value({proplist, _}, Value, _Opts) ->
-    [{list_to_atom(binary_to_list(Prop)), Val}
-     || {Prop, Val} <- Value, Prop =/= <<"__type">>];
-extract_value({field_fun, _, _, {M, F}}, Value, _Opts) ->
-    erlang:apply(M, F, [Value]);
-extract_value({field_fun, _, _, DecFun}, Value, _Opts) ->
-    DecFun(Value);
-extract_value({rec_fun, _, _}, _Value, _Opts) ->
+extract_value(Rule, Value, Opts) ->
+    case Rule of
+        {atom, _} ->
+            extract_atom(Value);
+        {atom, _, _} ->
+            extract_atom(Value);
+        {binary, _} ->
+            Value;
+        {binary, _, _} ->
+            Value;
+        {string, _} ->
+            extract_string(Value);
+        {string, _, _} ->
+            extract_string(Value);
+        {list, _} ->
+            extract_list(Value, [], Opts);
+        {list, _, FieldOpts} ->
+            extract_list(Value, FieldOpts, Opts);
+        {field_fun, _, _EncFun, DecFun} ->
+            extract_field_fun(Value, DecFun, Value, Opts);
+        {rec_fun, _, _} ->
+            undefined;
+        {proplist, _} ->
+            %% TODO proper conversion here!
+            undefined;
+        {const, _, _} ->
+            undefined;
+        _AttrName when is_list(Value) ->
+            decode(Value, Opts);
+        _AttrName ->
+            %% number and boolean case
+            Value
+    end.
+
+extract_atom(null) ->
     undefined;
-extract_value({const, _, _}, _Value, _Opts) ->
+extract_atom(Value) ->
+    binary_to_atom(Value, utf8).
+
+extract_string(null) ->
     undefined;
-extract_value(_, Value, _Opts) ->
-    Value.
+extract_string(Value) ->
+    unicode:characters_to_list(Value, utf8).
+
+extract_list(null, _FieldOpts, _Opts) ->
+    undefined;
+extract_list(Value, FieldOpts, Opts) ->
+    case proplists:get_value(type, FieldOpts) of
+        undefined ->
+            %% No target type for list element, it can be an attrlist
+            %% or a primitive value
+            lists:map(
+              fun(V) when is_list(V) ->
+                      {ok, D} = decode(V, Opts),
+                      %% TODO make an error case and gives back error
+                      D;
+                 (V) ->
+                      V
+              end, Value);
+        Type ->
+            [decode1(V, Opts, Type) || V <- Value]
+    end.
+
+extract_field_fun(Value, {M, F}, Value, Opts) ->
+    try erlang:apply(M, F, [Value]) of
+        Val ->
+            Val
+            %%decode(Val, Opts)
+    catch
+        E:R ->
+            {error, {field_run, {M, F}, {E, R}}}
+    end.
+
+%% Get the default value from a field rule
+default_value({Type, _, Opts}) when Type =:= atom orelse
+                                    Type =:= binary orelse
+                                    Type =:= list orelse
+                                    Type =:= string ->
+    proplists:get_value(default, Opts);
+default_value(_) ->
+    undefined.

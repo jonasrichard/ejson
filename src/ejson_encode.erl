@@ -23,9 +23,8 @@
 -export([encode/2]).
 
 %% TODO: conditional macro for atom_to_binary
--define(BIN(Name), if is_atom(Name) -> list_to_binary(atom_to_list(Name));
+-define(BIN(Name), if is_atom(Name) -> atom_to_binary(Name, utf8);
                       true          -> list_to_binary(Name)
-                          %%{error, {atom_expected, Name}}
                    end).
 
 %%------------------------------------------------------------------------------

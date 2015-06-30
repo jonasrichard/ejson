@@ -60,19 +60,17 @@ get_fields(RecordName, Opts) ->
 
 get_field_name(skip) ->
     undefined;
-get_field_name({list, Field}) ->
+get_field_name({Type, Field}) when Type =:= atom orelse
+                                   Type =:= binary orelse
+                                   Type =:= list orelse
+                                   Type =:= proplist orelse
+                                   Type =:= string ->
     Field;
-get_field_name({list, Field, _Type}) ->
-    Field;
-get_field_name({binary, Field}) ->
-    Field;
-get_field_name({string, Field}) ->
-    Field;
-get_field_name({atom, Field}) ->
-    Field;
-get_field_name({proplist, Field}) ->
-    Field;
-get_field_name({const, Field, _}) ->
+get_field_name({Type, Field, _FieldOpts}) when Type =:= atom orelse
+                                               Type =:= binary orelse
+                                               Type =:= const orelse
+                                               Type =:= list orelse
+                                               Type =:= string ->
     Field;
 get_field_name({field_fun, Field, _EncFun, _DecFun}) ->
     Field;

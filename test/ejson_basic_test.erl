@@ -21,10 +21,12 @@ list_test_() ->
     [?_assertEqual({ok, Expected}, ejson_encode:encode(Expected, []))
         || Expected <- Cases].
 
+enc_fun(Num) -> Num * 1000.
+dec_fun(Num) -> Num div 1000.
+
 field_fun_test_() ->
-    Enc = fun(Num) -> Num * 1000 end,
-    Dec = fun(Num) -> Num div 1000 end,
-    Opts = [{time, {field_fun, "jsTime", Enc, Dec}}],
+    Opts = [{time, {field_fun, "jsTime", {?MODULE, enc_fun},
+                                         {?MODULE, dec_fun}}}],
     Record = {time, 2300},
     {ok, E} = ejson_encode:encode(Record, Opts),
     {ok, D} = ejson_decode:decode(E, Opts),
