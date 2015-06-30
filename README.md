@@ -270,7 +270,4 @@ convert_list(List) ->
 * Field rule specifications are no longer in a list `-json({record, [field1, field2]})` is simplified to `-json({record, field1, field2})`.
 * Converter generate a JSON field describing the source record of the data. The `__rec` field contains the record name, which is useful for decoding.
 * Encoded proplists also contain type field `__type` which the decoder know what is the target type.
-
-### Changelog from 0.2.0
-
 * All `to` and `from` functions in `ejson` module result in either an `{ok, Result}` or an `{error, Reason}` term. Previously it was `Result` and `{error, Reason}`.
