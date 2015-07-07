@@ -64,7 +64,7 @@ encode1(Tuple, Opts) when is_tuple(Tuple) andalso is_atom(element(1, Tuple)) ->
             Error;
         Fields ->
             %% Convert each values
-            Meta = [{<<"__rec">>, ?BIN(RecordName)}],
+            Meta = [{<<"__rec">>, atom_to_binary(RecordName, utf8)}],
             case convert(ejson_util:zip(Fields, Values), Tuple, Opts, Meta) of
                 {error, _} = Error ->
                     Error;
@@ -145,7 +145,7 @@ apply_rule(Name, Tuple, Value, Opts) ->
 atom_rule(AttrName, undefined) ->
     {AttrName, null};
 atom_rule(AttrName, Value) when is_atom(Value) ->
-    {AttrName, ?BIN(Value)};
+    {AttrName, atom_to_binary(Value, utf8)};
 atom_rule(AttrName, Value) ->
     {error, {atom_value_expected, AttrName, Value}}.
 

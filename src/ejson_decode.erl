@@ -132,7 +132,7 @@ extract_value(Rule, Value, Opts) ->
         {const, _, _} ->
             undefined;
         _AttrName when is_list(Value) ->
-            decode(Value, Opts);
+            decode1(Value, Opts);
         _AttrName ->
             %% number and boolean case
             Value
@@ -167,11 +167,11 @@ extract_list(Value, FieldOpts, Opts) ->
             [decode1(V, Opts, Type) || V <- Value]
     end.
 
-extract_field_fun(Value, {M, F}, Value, Opts) ->
+extract_field_fun(Value, {M, F}, Value, _Opts) ->
     try erlang:apply(M, F, [Value]) of
         Val ->
             Val
-            %%decode(Val, Opts)
+            %%decode1(Val, Opts)
     catch
         E:R ->
             {error, {field_run, {M, F}, {E, R}}}

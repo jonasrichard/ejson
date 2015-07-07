@@ -76,6 +76,32 @@ to_json({person, "John Doe", male, 43, <<"43231-fec112">>}).
 
 Note that ejson puts type information into JSON results, so when we pass those JSONs back, ejson will know what type it needs to convert from those JSONs. Sometimes it is not possible to put those `__rec` fields into the JSON, in that case we need to specify the target type in the rule definition.
 
+#### Nested records
+
+Obviously not just numeric and boolean values can be in a record but records itselfes. If a field value is a tuple, it will be treated as a record.
+
+```erlang
+-json({book, {string, "title"}, "author", "year"}).
+-json({author, {string, "firstName"},
+               {string, "midName", [{default, ""}]},
+               {string, "lastName"}}).
+```
+
+In the author field you can put an author record value, the converted will convert in as a nested JSON as you expect.
+
+```json
+{
+    "__rec": "book",
+    "title": "How to get things done in 24 hours for dummies",
+    "author":
+        {
+            "firstName": "John",
+            "lastName": "Smith"
+        },
+    "year": 2014
+}
+```
+
 #### Lists to arrays
 
 In Erlang lists are strings basically, so if we want to convert list of values we need to specify that (tell ejson that it is not a string).
@@ -207,7 +233,7 @@ The result is
 }
 ```
 
-Another example using `field\_fun` to convert times.
+Another example using `field_fun` to convert times.
 
 ```erlang
 -json({event, id, {field_fun, time, {?MODULE, to_jstime},
@@ -253,7 +279,7 @@ handle_req(Id) ->
 
 ### Caching module attributes
 
-Sometimes you don't want to collect the module attributes and filter the json wild attributes for one thousand elements one by one. So there is a possibility to collect them manually and pass them to `to\_json/2` function.
+Sometimes you don't want to collect the module attributes and filter the json wild attributes for one thousand elements one by one. So there is a possibility to collect them manually and pass them to `to_json/2` function.
 
 ```erlang
 convert_list(List) ->

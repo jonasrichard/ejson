@@ -51,7 +51,10 @@
 %%% External API functions
 %%%============================================================================
 
--spec to_json_modules(term(), [module()]) -> binary().
+-spec to_json_modules(term(), [module()]) ->
+        {ok, binary()} |
+        {error, {duplicate_records, term()}} |
+        {error, {duplicate_fields, term()}}.
 to_json_modules(Term, ModuleList) ->
     Opts = json_props(ModuleList),
     to_json(Term, Opts).
