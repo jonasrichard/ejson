@@ -297,3 +297,9 @@ convert_list(List) ->
 * Converter generate a JSON field describing the source record of the data. The `__rec` field contains the record name, which is useful for decoding.
 * Encoded proplists also contain type field `__type` which the decoder know what is the target type.
 * All `to` and `from` functions in `ejson` module result in either an `{ok, Result}` or an `{error, Reason}` term. Previously it was `Result` and `{error, Reason}`.
+
+### Future plans
+
+* Better proplist support (deep proplists or so)
+* dict, set support
+* Support of a hook handling generic data types by `__type` field (later one can support gbset, orddict.
