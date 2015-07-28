@@ -81,7 +81,7 @@ Note that ejson puts type information into JSON results, so when we pass those J
 Obviously not just numeric and boolean values can be in a record but records itselfes. If a field value is a tuple, it will be treated as a record.
 
 ```erlang
--json({book, {string, "title"}, "author", "year"}).
+-json({book, {string, "title"}, {record, "author"}, "year"}).
 -json({author, {string, "firstName"},
                {string, "midName", [{default, ""}]},
                {string, "lastName"}}).
@@ -95,6 +95,7 @@ In the author field you can put an author record value, the converted will conve
     "title": "How to get things done in 24 hours for dummies",
     "author":
         {
+            "__rec": "author",
             "firstName": "John",
             "lastName": "Smith"
         },

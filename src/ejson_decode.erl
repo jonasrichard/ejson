@@ -118,6 +118,10 @@ extract_value(Rule, Value, Opts) ->
             extract_string(Value);
         {string, _, _} ->
             extract_string(Value);
+        {record, _} ->
+            extract_record(Value, [], Opts);
+        {record, _, FieldOpts} ->
+            extract_record(Value, FieldOpts, Opts);
         {list, _} ->
             extract_list(Value, [], Opts);
         {list, _, FieldOpts} ->
@@ -147,6 +151,21 @@ extract_string(null) ->
     undefined;
 extract_string(Value) ->
     unicode:characters_to_list(Value, utf8).
+
+extract_record(null, FieldOpts, Opts) ->
+    case proplists:get_value(default, FieldOpts) of
+        undefined ->
+            undefined;
+        Default ->
+            extract_record(Default, FieldOpts, Opts)
+    end;
+extract_record(Value, FieldOpts, Opts) ->
+    case proplists:get_value(type, FieldOpts) of
+        undefined ->
+            decode1(Value, Opts);
+        Type ->
+            decode1(Value, Opts, Type)
+    end.
 
 extract_list(null, _FieldOpts, _Opts) ->
     undefined;
@@ -181,6 +200,7 @@ extract_field_fun(Value, {M, F}, Value, _Opts) ->
 default_value({Type, _, Opts}) when Type =:= atom orelse
                                     Type =:= binary orelse
                                     Type =:= list orelse
+                                    Type =:= record orelse
                                     Type =:= string ->
     proplists:get_value(default, Opts);
 default_value(_) ->

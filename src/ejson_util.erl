@@ -64,12 +64,14 @@ get_field_name({Type, Field}) when Type =:= atom orelse
                                    Type =:= binary orelse
                                    Type =:= list orelse
                                    Type =:= proplist orelse
+                                   Type =:= record orelse
                                    Type =:= string ->
     Field;
 get_field_name({Type, Field, _FieldOpts}) when Type =:= atom orelse
                                                Type =:= binary orelse
                                                Type =:= const orelse
                                                Type =:= list orelse
+                                               Type =:= record orelse
                                                Type =:= string ->
     Field;
 get_field_name({field_fun, Field, _EncFun, _DecFun}) ->

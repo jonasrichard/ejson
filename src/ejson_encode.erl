@@ -123,6 +123,10 @@ apply_rule(Name, Tuple, Value, Opts) ->
             string_rule(AttrName, Value);
         {string, AttrName, _FieldOpts} ->
             string_rule(AttrName, Value);
+        {record, AttrName} ->
+            record_rule(AttrName, Value, [], Opts);
+        {record, AttrName, FieldOpts} ->
+            record_rule(AttrName, Value, FieldOpts, Opts);
         {list, AttrName} ->
             list_rule(AttrName, Value, Opts);
         {list, AttrName, _FieldOpts} ->
@@ -162,6 +166,13 @@ string_rule(AttrName, Value) when is_list(Value) ->
     {AttrName, unicode:characters_to_binary(Value)};
 string_rule(AttrName, Value) ->
     {error, {string_value_expected, AttrName, Value}}.
+
+record_rule(AttrName, undefined, _FieldOpts, _Opts) ->
+    {AttrName, null};
+record_rule(AttrName, Value, _FieldOpts, Opts) when is_tuple(Value) ->
+    {AttrName, encode1(Value, Opts)};
+record_rule(AttrName, Value, _FieldOpts, _Opts) ->
+    {error, {record_value_expected, AttrName, Value}}.
 
 list_rule(AttrName, undefined, _Opts) ->
     {AttrName, null};
