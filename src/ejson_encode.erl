@@ -111,6 +111,14 @@ apply_rule(Name, Tuple, Value, Opts) ->
     case Name of
         skip ->
             undefined;
+        {number, AttrName} ->
+            number_rule(AttrName, Value);
+        {number, AttrName, _FieldOpts} ->
+            number_rule(AttrName, Value);
+        {boolean, AttrName} ->
+            boolean_rule(AttrName, Value);
+        {boolean, AttrName, _FieldOpts} ->
+            boolean_rule(AttrName, Value);
         {atom, AttrName} ->
             atom_rule(AttrName, Value);
         {atom, AttrName, _FieldOpts} ->
@@ -139,12 +147,23 @@ apply_rule(Name, Tuple, Value, Opts) ->
             proplist_rule(AttrName, Value);
         {const, AttrName, Const} ->
             {AttrName, encode1(Const, Opts)};
-        AttrName when is_tuple(Value) ->
-            {AttrName, encode1(Value, Opts)};
         AttrName ->
-            %% number and boolean values left
-            {AttrName, Value}
+            {error, {invalid_field_rule, AttrName, Name}}
     end.
+
+boolean_rule(AttrName, undefined) ->
+    {AttrName, null};
+boolean_rule(AttrName, Value) when is_boolean(Value) ->
+    {AttrName, Value};
+boolean_rule(AttrName, Value) ->
+    {error, {boolean_value_expected, AttrName, Value}}.
+
+number_rule(AttrName, undefined) ->
+    {AttrName, null};
+number_rule(AttrName, Value) when is_number(Value) ->
+    {AttrName, Value};
+number_rule(AttrName, Value) ->
+    {error, {numeric_value_expected, AttrName, Value}}.
 
 atom_rule(AttrName, undefined) ->
     {AttrName, null};

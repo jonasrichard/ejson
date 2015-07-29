@@ -5,7 +5,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 list_test() ->
-    Options = [{book, {string, "title"}, "numberOfPages"},
+    Options = [{book, {string, "title"}, {number, "numberOfPages"}},
                {person, {string, "name"}, {list, "books"}}],
     
     Book1 = {book, "Introduction to clean coding", 251},

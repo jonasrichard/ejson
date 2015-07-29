@@ -3,7 +3,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 -json({series, {list, metric}}).
--json({metric, {string, name}, value}).
+-json({metric, {string, name}, {number, value}}).
 
 no_record_test_() ->
     ?_assertEqual({error, {no_such_record, person}},
@@ -28,10 +28,8 @@ duplicate_field_test_() ->
             {error, {duplicate_fields, [<<"a">>]}} =:= Result
         end,
     [
-     ?_assert(F([{rec, a, a}])),
-     ?_assert(F([{rec, {atom, a}, a}])),
      ?_assert(F([{rec, {string, a}, {binary, a}}])),
-     ?_assert(F([{rec, a, {rec_fun, a, f}}])),
-     ?_assert(F([{rec, a, {field_fun, a, ff, ff2}}])),
+     ?_assert(F([{rec, {number, a}, {rec_fun, a, f}}])),
+     ?_assert(F([{rec, {boolean, a}, {field_fun, a, ff, ff2}}])),
      ?_assert(F([{rec, {const, a, 1}, {list, a}}]))
     ].

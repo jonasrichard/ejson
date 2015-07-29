@@ -30,15 +30,22 @@ identifier() ->
 symb_name() ->
     ?LET(Id, identifier(), list_to_atom(Id)).
 
+%% Field name can be atom or string
 field_rule_name() ->
     oneof([symb_name(), identifier()]).
 
 rule() ->
     frequency([
-               {1, field_rule_name()},              %% number
-               {1, {atom, field_rule_name()}},      %% atom
-               {1, {string, field_rule_name()}},    %% utf-8 string
-               {1, {binary, field_rule_name()}},    %% utf-8 binary
+               {1, {atom, field_rule_name()}},
+               {1, {atom, field_rule_name(), [{default, atom()}]}},
+               {1, {binary, field_rule_name()}},
+               {1, {binary, field_rule_name(), [{default, binary()}]}},
+               {1, {boolean, field_rule_name()}},
+               {1, {boolean, field_rule_name(), [{default, boolean()}]}},
+               {1, {number, field_rule_name()}},
+               {1, {number, field_rule_name(), [{default, integer()}]}},
+               {1, {string, field_rule_name()}},
+               {1, {string, field_rule_name(), [{default, string()}]}},
                {1, {list, field_rule_name()}},      %% list of anything
                {1, skip},
                {1, {field_fun, field_rule_name(), {?MODULE, fconv},
@@ -68,10 +75,20 @@ basic(skip, _Rules, _Depth) ->
     undefined;
 basic({atom, _Name}, _Rules, _Depth) ->
     atom();
+basic({atom, _Name, _FieldOpts}, _Rules, _Depth) ->
+    oneof([atom(), undefined]);
 basic({binary, _Name}, _Rules, _Depth) ->
     binary();
+basic({binary, _Name, _FieldOpts}, _Rules, _Depth) ->
+    oneof([binary(), undefined]);
+basic({boolean, _Name}, _Rules, _Depth) ->
+    boolean();
+basic({boolean, _Name, _FieldOpts}, _Rules, _Depth) ->
+    oneof([boolean(), undefined]);
 basic({string, _Name}, _Rules, _Depth) ->
     string();
+basic({string, _Name, _FieldOpts}, _Rules, _Depth) ->
+    oneof([string(), undefined]);
 basic({list, _Name}, _Rules, 0) ->
     list(integer());
 basic({list, Name}, Rules, Depth) ->
@@ -85,7 +102,9 @@ basic({rec_fun, _Name, _MF1}, _Rules, _Depth) ->
     integer();
 basic({field_fun, _Name, _MF1, _MF2}, _Rules, _Depth) ->
     integer();
-basic(Name, _Rules, _Depth) when is_list(Name) orelse is_atom(Name) ->
+basic({number, _Name}, _Rules, _Depth) ->
+    integer();
+basic({number, _Name, _FieldOpts}, _Rules, _Depth) ->
     integer().
 
 value(RecordRule, Rules) ->
@@ -112,17 +131,23 @@ equal(Expected, Actual, Opts) ->
               case Rule of
                   skip ->
                       true;
-                  Name when is_atom(Name) orelse is_list(Name) ->
-                      Exp =:= Act;
                   {Simple, _} when Simple =:= atom orelse
                                    Simple =:= binary orelse
+                                   Simple =:= boolean orelse
+                                   Simple =:= number orelse
                                    Simple =:= string ->
+                      Exp =:= Act;
+                  {Simple, _, _} when Simple =:= atom orelse
+                                      Simple =:= binary orelse
+                                      Simple =:= boolean orelse
+                                      Simple =:= number orelse
+                                      Simple =:= string ->
                       Exp =:= Act;
                   {rec_fun, _, _} ->
                       true;
                   {field_fun, _, _, _} ->
                       true;
-                  {const, _, Value} ->
+                  {const, _, _Value} ->
                       true;
                   {list, _} ->
                       Exp =:= Act 

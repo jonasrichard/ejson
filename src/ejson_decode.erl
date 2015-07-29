@@ -111,9 +111,17 @@ extract_value(Rule, Value, Opts) ->
         {atom, _, _} ->
             extract_atom(Value);
         {binary, _} ->
-            Value;
+            extract_binary(Value);
         {binary, _, _} ->
-            Value;
+            extract_binary(Value);
+        {boolean, _} ->
+            extract_boolean(Value);
+        {boolean, _, _} ->
+            extract_boolean(Value);
+        {number, _} ->
+            extract_number(Value);
+        {number, _, _} ->
+            extract_number(Value);
         {string, _} ->
             extract_string(Value);
         {string, _, _} ->
@@ -134,18 +142,28 @@ extract_value(Rule, Value, Opts) ->
             %% TODO proper conversion here!
             undefined;
         {const, _, _} ->
-            undefined;
-        _AttrName when is_list(Value) ->
-            decode1(Value, Opts);
-        _AttrName ->
-            %% number and boolean case
-            Value
+            undefined
     end.
 
 extract_atom(null) ->
     undefined;
 extract_atom(Value) ->
     binary_to_atom(Value, utf8).
+
+extract_binary(null) ->
+    undefined;
+extract_binary(Value) ->
+    Value.
+
+extract_boolean(null) ->
+    undefined;
+extract_boolean(Value) ->
+    Value.
+
+extract_number(null) ->
+    undefined;
+extract_number(Value) ->
+    Value.
 
 extract_string(null) ->
     undefined;
@@ -199,7 +217,9 @@ extract_field_fun(Value, {M, F}, Value, _Opts) ->
 %% Get the default value from a field rule
 default_value({Type, _, Opts}) when Type =:= atom orelse
                                     Type =:= binary orelse
+                                    Type =:= boolean orelse
                                     Type =:= list orelse
+                                    Type =:= number orelse
                                     Type =:= record orelse
                                     Type =:= string ->
     proplists:get_value(default, Opts);

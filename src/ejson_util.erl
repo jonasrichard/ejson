@@ -62,15 +62,19 @@ get_field_name(skip) ->
     undefined;
 get_field_name({Type, Field}) when Type =:= atom orelse
                                    Type =:= binary orelse
+                                   Type =:= boolean orelse
                                    Type =:= list orelse
+                                   Type =:= number orelse
                                    Type =:= proplist orelse
                                    Type =:= record orelse
                                    Type =:= string ->
     Field;
 get_field_name({Type, Field, _FieldOpts}) when Type =:= atom orelse
                                                Type =:= binary orelse
+                                               Type =:= boolean orelse
                                                Type =:= const orelse
                                                Type =:= list orelse
+                                               Type =:= number orelse
                                                Type =:= record orelse
                                                Type =:= string ->
     Field;
@@ -79,7 +83,7 @@ get_field_name({field_fun, Field, _EncFun, _DecFun}) ->
 get_field_name({rec_fun, Field, _EncFun}) ->
     Field;
 get_field_name(Field) ->
-    Field.
+    {error, {invalid_field_rule, Field}}.
 
 zip([], []) ->
     [];

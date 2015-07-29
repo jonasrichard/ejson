@@ -4,9 +4,9 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
--json({square, "side"}).
+-json({square, {number, "side"}}).
 
--json({book, {string, "title"}, "author", "year"}).
+-json({book, {string, "title"}, {record, "author"}, {number, "year"}}).
 -json({author, {string, "firstName"},
                {string, "midName", [{default, ""}]},
                {string, "lastName"}}).
