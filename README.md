@@ -298,6 +298,25 @@ convert_list(List) ->
         List).
 ```
 
+### Use with parse transform
+
+If `ejson_trans` parse transform is used, json attributes are read, and two local functions (`from_json` and `to_json`) are generated to support conversion. If we want to use json rules from another module, we can do that by using `json_include` attribute.
+
+```erlang
+-module(book_rest).
+
+-compile({parse_transform, ejson_trans}).
+
+-json_include([book, author]).      %% Use json rules from another modules
+
+-json({book_get_req, {string, id}}).
+-json({book_get_resp, {record, book, [{type, book}]}}).
+
+...
+```
+
+The modules are loaded by `code:load_file/1`, so depending modules need to be compiled first or at least before that file.
+
 ### Changelog from 0.1.x
 
 * Field rule specifications are no longer in a list `-json({record, [field1, field2]})` is simplified to `-json({record, field1, field2})`.
