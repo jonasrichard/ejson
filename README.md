@@ -2,6 +2,8 @@
 
 JSON library for Erlang on top of `jsx`. It gives a declarative interface for `jsx` by which we need to specify conversion rules and `ejson` will convert tuples according to the rules.
 
+I made this library to make easy not just the encoding but rather the decoding of JSONs to Erlang records. I also put emphasis to property-based test the encoding/decoding pair, so all features work in both way.
+
 There are API changes from the previous version see the Changelog section at the bottom.
 
 ### Usage
@@ -16,8 +18,10 @@ In order for ejson to take effect the source files need to be compiled with `par
 -record(person, {name, birth_year, projects}).
 -record(project, {name, budget, successful}).
 
--json({person, {string, "name"}, "yearOfBirth", {list, "projects"}]}).
--json({project, {string, "name"}, "budget", "isSuccessful"]}).
+-json({person, {string, "name"}, {number, "yearOfBirth"},
+               {list, "projects"}]}).
+-json({project, {string, "name"}, {number, "budget"},
+                {boolean, "isSuccessful"}]}).
 
 %% parse_transform generates to_json/1 and from_json/1 local functions
 
@@ -46,9 +50,9 @@ a_typical_atom_name -> "aTypicalAtomName"
 
 #### One to one binding
 
+In older versions one didn't need to specify types for numeric, boolean and record fields. Later as features came in - like default values and target types - it was necessary to break the interface and change field rules. Now in case of basic conversion type specifier is always expected. 
 ```erlang
-%% We don't specify type for side, so it will be treated as a number
--json({square, "side"}).
+-json({square, {number, "side"}}).
 
 case ejson:to_json({square, 5}) of
     {ok, Json} ->
@@ -66,10 +70,10 @@ It will be converted as
 }
 ```
 
-Let us note that in the attribute definition there isn't any type specified for `side` field. During the data conversion between Erlang and JSON only numbers and booleans can be converted unambiguously. From a JSON string either an Erlang string, binary or atom can be extracted. So if we are dealing with those data types we need to specify the target type in order that when a JSON will be decoded the fields can be decoded to the proper data types.
+So numbers and booleans can be converted unambiguously. JSON strings can be coverted to atom, string or binary. Either way we need to specify the target type for the sake of decoding.
 
 ```erlang
--json({person, {string, name}, {atom, sex}, age, {binary, id}}).
+-json({person, {string, name}, {atom, sex}, {number, age}, {binary, id}}).
 
 to_json({person, "John Doe", male, 43, <<"43231-fec112">>}).
 ```
@@ -81,7 +85,7 @@ Note that ejson puts type information into JSON results, so when we pass those J
 Obviously not just numeric and boolean values can be in a record but records itselfes. If a field value is a tuple, it will be treated as a record.
 
 ```erlang
--json({book, {string, "title"}, "author", "year"}).
+-json({book, {string, "title"}, {record, "author"}, {number, "year"}}).
 -json({author, {string, "firstName"},
                {string, "midName", [{default, ""}]},
                {string, "lastName"}}).
@@ -95,6 +99,7 @@ In the author field you can put an author record value, the converted will conve
     "title": "How to get things done in 24 hours for dummies",
     "author":
         {
+            "__rec": "author",
             "firstName": "John",
             "lastName": "Smith"
         },
@@ -102,12 +107,14 @@ In the author field you can put an author record value, the converted will conve
 }
 ```
 
+During decoding, since the midName is not in the object, it won't be undefined in the record but the empty string as the default value specified.
+
 #### Lists to arrays
 
 In Erlang lists are strings basically, so if we want to convert list of values we need to specify that (tell ejson that it is not a string).
 
 ```erlang
--json({square, side}).
+-json({square, {number, side}}).
 -json({shapes, {list, data}}).
 
 to_json({shapes, [{square, 4}, {square, 6}]}).
@@ -140,7 +147,7 @@ In the 3rd parameter of the type definition we can write an option list with whi
 The keys in proplist will be camel case converted and those will be the name of the attribute in the JSON object. In order that the decoder can create proplist from an object a `__type` property will be added as an extra.
 
 ```erlang
--json({square, side}).
+-json({square, {number, side}}).
 -json({shapes, {list, data}}).
 -json({canvas, {proplist, opts}).
 
@@ -204,8 +211,10 @@ Record functions can be used only during encoding, it means that we can create v
 -record({square, {side}}).
 -record({rect, {a_side, b_side}}).
 
--json({square, side, {rec_fun, area, {shapes, area}}}).
--json({rect, ["aSide", "bSide", {rec_fun, "area", {shapes, area}}]}).
+-json({square, {number, side}, {rec_fun, area, {shapes, area}}}).
+-json({rect, {number, "aSide"},
+             {number, "bSide"},
+             {rec_fun, "area", {shapes, area}}]}).
 -json({shapes, [{list, "data"}]}).
 
 %% Conversion function needs to be exported
@@ -218,8 +227,6 @@ ejson:to_json({shapes, [{square, 4}, {rect, 6, 5}]}).
 ```
 
 We need a function which gets the tuple to be converted as a parameter (`area/1`). In the attribute definition we cannot refer to functions, so we need to write a `{Module, Function}` tuple which refers to `fun Module:Function/1`.
-
-Note: Under the hood `ejson` engine makes pairs from json attributes and tuples element. At first it makes a list of pairs like `[{"side", 4}, {{pre, "area", #Fun}, undefined}]`. Since we want to serialize more fields than we have, the engine will put `undefined`s in the list. That`s why you need to specify the computed attributes at the end of the attribute list.
 
 The result is
 
@@ -274,7 +281,7 @@ If one doesn't want to use parse transform for any reason, it is still possible 
 ```erlang
 handle_req(Id) ->
     Rec = get_by_id(Id),
-    to_json_modules(Rec, [?MODULE]).
+    ejson:to_json_modules(Rec, [?MODULE]).
 ```
 
 ### Caching module attributes
@@ -283,13 +290,32 @@ Sometimes you don't want to collect the module attributes and filter the json wi
 
 ```erlang
 convert_list(List) ->
-    Attrs = ejson:json_props([module1, module2]),
+    Opts = ejson:json_props([module1, module2]),
     lists:map(
         fun(Item) ->
-            ejson:to_json(Item, Attrs)
+            ejson:to_json(Item, Opts)
         end,
         List).
 ```
+
+### Use with parse transform
+
+If `ejson_trans` parse transform is used, json attributes are read, and two local functions (`from_json` and `to_json`) are generated to support conversion. If we want to use json rules from another module, we can do that by using `json_include` attribute.
+
+```erlang
+-module(book_rest).
+
+-compile({parse_transform, ejson_trans}).
+
+-json_include([book, author]).      %% Use json rules from another modules
+
+-json({book_get_req, {string, id}}).
+-json({book_get_resp, {record, book, [{type, book}]}}).
+
+...
+```
+
+The modules are loaded by `code:load_file/1`, so depending modules need to be compiled first or at least before that file.
 
 ### Changelog from 0.1.x
 

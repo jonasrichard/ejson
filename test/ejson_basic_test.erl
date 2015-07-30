@@ -1,5 +1,7 @@
 -module(ejson_basic_test).
 
+-import(ejson_test_util, [json_prop/2]).
+
 -include_lib("eunit/include/eunit.hrl").
 
 value_test_() ->
@@ -29,6 +31,7 @@ field_fun_test_() ->
                                          {?MODULE, dec_fun}}}],
     Record = {time, 2300},
     {ok, E} = ejson_encode:encode(Record, Opts),
+    ?debugVal(E),
     {ok, D} = ejson_decode:decode(E, Opts),
     ?_assert(Record =:= D).
 
@@ -50,3 +53,16 @@ type_fail_test_() ->
      ?TYPE("test", Opts2, binary_value_expected),
      ?TYPE(3, Opts2, binary_value_expected),
      ?TYPE(1, Opts3, list_value_expected)].
+
+embedded_record_test_() ->
+    Opts = [{person, {string, name}, {record, address}},
+            {address, {string, city}, {string, country}}],
+    Rec = {person, "Joe", {address, "Budapest", "Hun"}},
+    {ok, Enc} = ejson_encode:encode(Rec, Opts),
+    {ok, Dec} = ejson_decode:decode(Enc, Opts),
+    ?debugVal(Dec),
+    Addr = json_prop(Enc, "address"),
+    [?_assertEqual(<<"Joe">>, json_prop(Enc, "name")),
+     ?_assertEqual(<<"Budapest">>, json_prop(Addr, "city")),
+     ?_assertEqual(<<"Hun">>, json_prop(Addr, "country")),
+     ?_assertMatch({person, _, {address, "Budapest", "Hun"}}, Dec)].

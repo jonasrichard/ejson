@@ -111,6 +111,14 @@ apply_rule(Name, Tuple, Value, Opts) ->
     case Name of
         skip ->
             undefined;
+        {number, AttrName} ->
+            number_rule(AttrName, Value);
+        {number, AttrName, _FieldOpts} ->
+            number_rule(AttrName, Value);
+        {boolean, AttrName} ->
+            boolean_rule(AttrName, Value);
+        {boolean, AttrName, _FieldOpts} ->
+            boolean_rule(AttrName, Value);
         {atom, AttrName} ->
             atom_rule(AttrName, Value);
         {atom, AttrName, _FieldOpts} ->
@@ -123,24 +131,46 @@ apply_rule(Name, Tuple, Value, Opts) ->
             string_rule(AttrName, Value);
         {string, AttrName, _FieldOpts} ->
             string_rule(AttrName, Value);
+        {record, AttrName} ->
+            record_rule(AttrName, Value, [], Opts);
+        {record, AttrName, FieldOpts} ->
+            record_rule(AttrName, Value, FieldOpts, Opts);
         {list, AttrName} ->
             list_rule(AttrName, Value, Opts);
         {list, AttrName, _FieldOpts} ->
             list_rule(AttrName, Value, Opts);
         {field_fun, AttrName, EncFun, _DecFun} ->
             field_fun_rule(AttrName, EncFun, Value, Opts);
+        {field_fun, AttrName, EncFun, _DecFun, FieldOpts} ->
+            case lists:member(raw, FieldOpts) of
+                true ->
+                    raw_field_fun_rule(AttrName, EncFun, Value);
+                false ->
+                    field_fun_rule(AttrName, EncFun, Value, Opts)
+            end;
         {rec_fun, AttrName, EncFun} ->
             rec_fun_rule(AttrName, EncFun, Tuple, Opts);
         {proplist, AttrName} ->
             proplist_rule(AttrName, Value);
         {const, AttrName, Const} ->
             {AttrName, encode1(Const, Opts)};
-        AttrName when is_tuple(Value) ->
-            {AttrName, encode1(Value, Opts)};
         AttrName ->
-            %% number and boolean values left
-            {AttrName, Value}
+            {error, {invalid_field_rule, AttrName, Name}}
     end.
+
+boolean_rule(AttrName, undefined) ->
+    {AttrName, null};
+boolean_rule(AttrName, Value) when is_boolean(Value) ->
+    {AttrName, Value};
+boolean_rule(AttrName, Value) ->
+    {error, {boolean_value_expected, AttrName, Value}}.
+
+number_rule(AttrName, undefined) ->
+    {AttrName, null};
+number_rule(AttrName, Value) when is_number(Value) ->
+    {AttrName, Value};
+number_rule(AttrName, Value) ->
+    {error, {numeric_value_expected, AttrName, Value}}.
 
 atom_rule(AttrName, undefined) ->
     {AttrName, null};
@@ -163,6 +193,13 @@ string_rule(AttrName, Value) when is_list(Value) ->
 string_rule(AttrName, Value) ->
     {error, {string_value_expected, AttrName, Value}}.
 
+record_rule(AttrName, undefined, _FieldOpts, _Opts) ->
+    {AttrName, null};
+record_rule(AttrName, Value, _FieldOpts, Opts) when is_tuple(Value) ->
+    {AttrName, encode1(Value, Opts)};
+record_rule(AttrName, Value, _FieldOpts, _Opts) ->
+    {error, {record_value_expected, AttrName, Value}}.
+
 list_rule(AttrName, undefined, _Opts) ->
     {AttrName, null};
 list_rule(AttrName, Value, Opts) when is_list(Value) ->
@@ -175,6 +212,15 @@ field_fun_rule(AttrName, {M, F}, Value, Opts) ->
     try erlang:apply(M, F, [Value]) of
         Val ->
             {AttrName, encode1(Val, Opts)}
+    catch
+        E:R ->
+            {error, {field_fun, {M, F}, {E, R}}}
+    end.
+
+raw_field_fun_rule(AttrName, {M, F}, Value) ->
+    try erlang:apply(M, F, [Value]) of
+        Val ->
+            {AttrName, Val}
     catch
         E:R ->
             {error, {field_fun, {M, F}, {E, R}}}

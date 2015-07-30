@@ -5,6 +5,8 @@
     ]).
 
 -define(D(Val), io:format("~s: ~p~n", [??Val, Val])).
+-define(W(Msg, Args), io:fwrite(standard_error,
+                                "[ejson] " ++ Msg, Args)).
 
 parse_transform(AstIn, _Options) ->
     Out = walk(AstIn),
@@ -44,8 +46,23 @@ walk([], AstOut, Records) ->
     {AstOut, Records};
 walk([{attribute, _Line, json, RecordSpec} = Attr | T], A, R) ->
     walk(T, [Attr | A], [RecordSpec | R]);
+walk([{attribute, _Line, json_include, Modules} = Attr | T], A, R) ->
+    %% TODO read attributes
+    walk(T, [Attr | A], read_attributes(Modules) ++ R);
 walk([H | T], A, R) ->
     walk(T, [H | A], R).
+
+read_attributes([]) ->
+    [];
+read_attributes([Module | Modules]) ->
+    case code:load_file(Module) of
+        {error, Reason} ->
+            ?W("Cannot load module ~p: ~p~n", [Module, Reason]),
+            [];
+        {module, _} ->
+            Js = ejson:json_props([Module]),
+            Js ++ read_attributes(Modules)
+    end.
 
 %% true if local function with arity defined
 is_fun_defined([], _FunName, _Arity) ->

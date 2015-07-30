@@ -111,17 +111,36 @@ extract_value(Rule, Value, Opts) ->
         {atom, _, _} ->
             extract_atom(Value);
         {binary, _} ->
-            Value;
+            extract_binary(Value);
         {binary, _, _} ->
-            Value;
+            extract_binary(Value);
+        {boolean, _} ->
+            extract_boolean(Value);
+        {boolean, _, _} ->
+            extract_boolean(Value);
+        {number, _} ->
+            extract_number(Value);
+        {number, _, _} ->
+            extract_number(Value);
         {string, _} ->
             extract_string(Value);
         {string, _, _} ->
             extract_string(Value);
+        {record, _} ->
+            extract_record(Value, [], Opts);
+        {record, _, FieldOpts} ->
+            extract_record(Value, FieldOpts, Opts);
         {list, _} ->
             extract_list(Value, [], Opts);
         {list, _, FieldOpts} ->
             extract_list(Value, FieldOpts, Opts);
+        {field_fun, _, _EncFun, DecFun, FieldOpts} ->
+            case lists:member(raw, FieldOpts) of
+                true ->
+                    extract_raw_field_fun(Value, DecFun, Value);
+                false ->
+                    extract_field_fun(Value, DecFun, Value, Opts)
+            end;
         {field_fun, _, _EncFun, DecFun} ->
             extract_field_fun(Value, DecFun, Value, Opts);
         {rec_fun, _, _} ->
@@ -130,12 +149,7 @@ extract_value(Rule, Value, Opts) ->
             %% TODO proper conversion here!
             undefined;
         {const, _, _} ->
-            undefined;
-        _AttrName when is_list(Value) ->
-            decode1(Value, Opts);
-        _AttrName ->
-            %% number and boolean case
-            Value
+            undefined
     end.
 
 extract_atom(null) ->
@@ -143,10 +157,40 @@ extract_atom(null) ->
 extract_atom(Value) ->
     binary_to_atom(Value, utf8).
 
+extract_binary(null) ->
+    undefined;
+extract_binary(Value) ->
+    Value.
+
+extract_boolean(null) ->
+    undefined;
+extract_boolean(Value) ->
+    Value.
+
+extract_number(null) ->
+    undefined;
+extract_number(Value) ->
+    Value.
+
 extract_string(null) ->
     undefined;
 extract_string(Value) ->
     unicode:characters_to_list(Value, utf8).
+
+extract_record(null, FieldOpts, Opts) ->
+    case proplists:get_value(default, FieldOpts) of
+        undefined ->
+            undefined;
+        Default ->
+            extract_record(Default, FieldOpts, Opts)
+    end;
+extract_record(Value, FieldOpts, Opts) ->
+    case proplists:get_value(type, FieldOpts) of
+        undefined ->
+            decode1(Value, Opts);
+        Type ->
+            decode1(Value, Opts, Type)
+    end.
 
 extract_list(null, _FieldOpts, _Opts) ->
     undefined;
@@ -167,11 +211,19 @@ extract_list(Value, FieldOpts, Opts) ->
             [decode1(V, Opts, Type) || V <- Value]
     end.
 
-extract_field_fun(Value, {M, F}, Value, _Opts) ->
+extract_field_fun(Value, {M, F}, Value, Opts) ->
     try erlang:apply(M, F, [Value]) of
         Val ->
             Val
-            %%decode1(Val, Opts)
+    catch
+        E:R ->
+            {error, {field_run, {M, F}, {E, R}}}
+    end.
+
+extract_raw_field_fun(Value, {M, F}, Value) ->
+    try erlang:apply(M, F, [Value]) of
+        Val ->
+            Val
     catch
         E:R ->
             {error, {field_run, {M, F}, {E, R}}}
@@ -180,7 +232,10 @@ extract_field_fun(Value, {M, F}, Value, _Opts) ->
 %% Get the default value from a field rule
 default_value({Type, _, Opts}) when Type =:= atom orelse
                                     Type =:= binary orelse
+                                    Type =:= boolean orelse
                                     Type =:= list orelse
+                                    Type =:= number orelse
+                                    Type =:= record orelse
                                     Type =:= string ->
     proplists:get_value(default, Opts);
 default_value(_) ->

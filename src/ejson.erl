@@ -47,6 +47,22 @@
         json_props/1
     ]).
 
+%%%----------------------------------------------------------------------------
+%%% Types
+%%%----------------------------------------------------------------------------
+
+-type field_name()  :: atom() | string().
+
+-type field_opt()   :: {default, term()} | {type, atom()}.
+-type field_opts()  :: list(field_opt()).
+
+-type type_sel()    :: atom | binary | list | record | string.
+-type basic_rule()  :: field_name() |
+                       {type_sel(), field_name()} |
+                       {type_sel(), field_name(), field_opts()}.
+-type rule()        :: list(basic_rule()).
+
+
 %%%============================================================================
 %%% External API functions
 %%%============================================================================
@@ -63,7 +79,7 @@ to_jsx_modules(Term, ModuleList) ->
     Opts = json_props(ModuleList),
     to_jsx(Term, Opts).
 
--spec to_json(term(), list()) -> {ok, jsx:jsx_term()} | {error, term()}.
+-spec to_json(term(), rule()) -> {ok, jsx:jsx_term()} | {error, term()}.
 to_json(Term, Opts) ->
     case to_jsx(Term, Opts) of
         {ok, Result} ->
