@@ -141,6 +141,13 @@ apply_rule(Name, Tuple, Value, Opts) ->
             list_rule(AttrName, Value, Opts);
         {field_fun, AttrName, EncFun, _DecFun} ->
             field_fun_rule(AttrName, EncFun, Value, Opts);
+        {field_fun, AttrName, EncFun, _DecFun, FieldOpts} ->
+            case lists:member(raw, FieldOpts) of
+                true ->
+                    raw_field_fun_rule(AttrName, EncFun, Value);
+                false ->
+                    field_fun_rule(AttrName, EncFun, Value, Opts)
+            end;
         {rec_fun, AttrName, EncFun} ->
             rec_fun_rule(AttrName, EncFun, Tuple, Opts);
         {proplist, AttrName} ->
@@ -205,6 +212,15 @@ field_fun_rule(AttrName, {M, F}, Value, Opts) ->
     try erlang:apply(M, F, [Value]) of
         Val ->
             {AttrName, encode1(Val, Opts)}
+    catch
+        E:R ->
+            {error, {field_fun, {M, F}, {E, R}}}
+    end.
+
+raw_field_fun_rule(AttrName, {M, F}, Value) ->
+    try erlang:apply(M, F, [Value]) of
+        Val ->
+            {AttrName, Val}
     catch
         E:R ->
             {error, {field_fun, {M, F}, {E, R}}}

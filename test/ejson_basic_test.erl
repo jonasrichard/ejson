@@ -31,6 +31,7 @@ field_fun_test_() ->
                                          {?MODULE, dec_fun}}}],
     Record = {time, 2300},
     {ok, E} = ejson_encode:encode(Record, Opts),
+    ?debugVal(E),
     {ok, D} = ejson_decode:decode(E, Opts),
     ?_assert(Record =:= D).
 

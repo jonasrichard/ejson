@@ -80,6 +80,8 @@ get_field_name({Type, Field, _FieldOpts}) when Type =:= atom orelse
     Field;
 get_field_name({field_fun, Field, _EncFun, _DecFun}) ->
     Field;
+get_field_name({field_fun, Field, _EncFun, _DecFun, _FieldOpts}) ->
+    Field;
 get_field_name({rec_fun, Field, _EncFun}) ->
     Field;
 get_field_name(Field) ->

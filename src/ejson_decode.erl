@@ -134,6 +134,13 @@ extract_value(Rule, Value, Opts) ->
             extract_list(Value, [], Opts);
         {list, _, FieldOpts} ->
             extract_list(Value, FieldOpts, Opts);
+        {field_fun, _, _EncFun, DecFun, FieldOpts} ->
+            case lists:member(raw, FieldOpts) of
+                true ->
+                    extract_raw_field_fun(Value, DecFun, Value);
+                false ->
+                    extract_field_fun(Value, DecFun, Value, Opts)
+            end;
         {field_fun, _, _EncFun, DecFun} ->
             extract_field_fun(Value, DecFun, Value, Opts);
         {rec_fun, _, _} ->
@@ -204,11 +211,19 @@ extract_list(Value, FieldOpts, Opts) ->
             [decode1(V, Opts, Type) || V <- Value]
     end.
 
-extract_field_fun(Value, {M, F}, Value, _Opts) ->
+extract_field_fun(Value, {M, F}, Value, Opts) ->
     try erlang:apply(M, F, [Value]) of
         Val ->
             Val
-            %%decode1(Val, Opts)
+    catch
+        E:R ->
+            {error, {field_run, {M, F}, {E, R}}}
+    end.
+
+extract_raw_field_fun(Value, {M, F}, Value) ->
+    try erlang:apply(M, F, [Value]) of
+        Val ->
+            Val
     catch
         E:R ->
             {error, {field_run, {M, F}, {E, R}}}
