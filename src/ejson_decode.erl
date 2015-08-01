@@ -23,6 +23,8 @@
 -export([decode/2,
          decode/3]).
 
+-include_lib("eunit/include/eunit.hrl").
+
 %% TODO:
 %% exact_value should return with {ok, Value} or {error, Reason}, so
 %% every time when we extract, we also need to case pattern match.
@@ -99,8 +101,17 @@ extract_fields([Field | F], AttrList, Opts) ->
                     end;
                 {_, Value} ->
                     %% Extract value based on Field rule
-                    Extracted = extract_value(Field, Value, Opts),
-                    [Extracted | extract_fields(F, AttrList, Opts)]
+                    case extract_value(Field, Value, Opts) of
+                        {error, _} = Error ->
+                            Error;
+                        Extracted ->
+                            case maybe_post_process(Field, Extracted) of
+                                {ok, NewVal} ->
+                                    [NewVal | extract_fields(F, AttrList, Opts)];
+                                {error, _} = Error2 ->
+                                    Error2
+                            end
+                    end
             end
     end.
 
@@ -134,17 +145,8 @@ extract_value(Rule, Value, Opts) ->
             extract_list(Value, [], Opts);
         {list, _, FieldOpts} ->
             extract_list(Value, FieldOpts, Opts);
-        {field_fun, _, _EncFun, DecFun, FieldOpts} ->
-            case lists:member(raw, FieldOpts) of
-                true ->
-                    extract_raw_field_fun(Value, DecFun, Value);
-                false ->
-                    extract_field_fun(Value, DecFun, Value, Opts)
-            end;
-        {field_fun, _, _EncFun, DecFun} ->
-            extract_field_fun(Value, DecFun, Value, Opts);
-        {rec_fun, _, _} ->
-            undefined;
+        {generic, _, _EncFun, DecFun} ->
+            extract_generic(Value, DecFun);
         {proplist, _} ->
             %% TODO proper conversion here!
             undefined;
@@ -211,7 +213,7 @@ extract_list(Value, FieldOpts, Opts) ->
             [decode1(V, Opts, Type) || V <- Value]
     end.
 
-extract_field_fun(Value, {M, F}, Value, Opts) ->
+extract_generic(Value, {M, F}) ->
     try erlang:apply(M, F, [Value]) of
         Val ->
             Val
@@ -220,14 +222,23 @@ extract_field_fun(Value, {M, F}, Value, Opts) ->
             {error, {field_run, {M, F}, {E, R}}}
     end.
 
-extract_raw_field_fun(Value, {M, F}, Value) ->
-    try erlang:apply(M, F, [Value]) of
-        Val ->
-            Val
-    catch
-        E:R ->
-            {error, {field_run, {M, F}, {E, R}}}
-    end.
+maybe_post_process({const, _Name, _Const}, Value) ->
+    {ok, Value};
+maybe_post_process({_Type, Name, FieldOpts}, Value) ->
+    case lists:keyfind(post_decode, 1, FieldOpts) of
+        false ->
+            {ok, Value};
+        {post_decode, {M, F}} ->
+            try erlang:apply(M, F, [Value]) of
+                NewVal ->
+                    {ok, NewVal}
+            catch
+                E:R ->
+                    {error, {Name, E, R}}
+            end
+    end;
+maybe_post_process(_, Value) ->
+    {ok, Value}.
 
 %% Get the default value from a field rule
 default_value({Type, _, Opts}) when Type =:= atom orelse

@@ -97,13 +97,18 @@ validate_rules(Opts) ->
 convert([], _Tuple, _Opts, Result) ->
     Result;
 convert([{Name, Value} | T], Tuple, Opts, Result) ->
-    case apply_rule(Name, Tuple, Value, Opts) of
-        undefined ->
-            convert(T, Tuple, Opts, Result);
-        {error, _} = Error ->
-            Error;
-        {NewName, NewValue} ->
-            convert(T, Tuple, Opts, [{?BIN(NewName), NewValue} | Result])
+    case maybe_pre_process(Name, Tuple, Value) of
+        {ok, PreProcessed} ->
+            case apply_rule(Name, Tuple, PreProcessed, Opts) of
+                undefined ->
+                    convert(T, Tuple, Opts, Result);
+                {error, _} = Error ->
+                    Error;
+                {NewName, NewValue} ->
+                    convert(T, Tuple, Opts, [{?BIN(NewName), NewValue} | Result])
+            end;
+        {error, _} = Error2 ->
+            Error2
     end.
 
 %% Generate jsx attribute from ejson field
@@ -139,17 +144,8 @@ apply_rule(Name, Tuple, Value, Opts) ->
             list_rule(AttrName, Value, Opts);
         {list, AttrName, _FieldOpts} ->
             list_rule(AttrName, Value, Opts);
-        {field_fun, AttrName, EncFun, _DecFun} ->
-            field_fun_rule(AttrName, EncFun, Value, Opts);
-        {field_fun, AttrName, EncFun, _DecFun, FieldOpts} ->
-            case lists:member(raw, FieldOpts) of
-                true ->
-                    raw_field_fun_rule(AttrName, EncFun, Value);
-                false ->
-                    field_fun_rule(AttrName, EncFun, Value, Opts)
-            end;
-        {rec_fun, AttrName, EncFun} ->
-            rec_fun_rule(AttrName, EncFun, Tuple, Opts);
+        {generic, AttrName, EncFun, _DecFun} ->
+            generic_rule(AttrName, EncFun, Tuple, Value);
         {proplist, AttrName} ->
             proplist_rule(AttrName, Value);
         {const, AttrName, Const} ->
@@ -208,31 +204,13 @@ list_rule(AttrName, Value, Opts) when is_list(Value) ->
 list_rule(AttrName, Value, _Opts) ->
     {error, {list_value_expected, AttrName, Value}}.
 
-field_fun_rule(AttrName, {M, F}, Value, Opts) ->
-    try erlang:apply(M, F, [Value]) of
-        Val ->
-            {AttrName, encode1(Val, Opts)}
-    catch
-        E:R ->
-            {error, {field_fun, {M, F}, {E, R}}}
-    end.
-
-raw_field_fun_rule(AttrName, {M, F}, Value) ->
-    try erlang:apply(M, F, [Value]) of
+generic_rule(AttrName, {M, F}, Tuple, Value) ->
+    try erlang:apply(M, F, [Tuple, Value]) of
         Val ->
             {AttrName, Val}
     catch
         E:R ->
-            {error, {field_fun, {M, F}, {E, R}}}
-    end.
-
-rec_fun_rule(AttrName, {M, F}, Value, Opts) ->
-    try erlang:apply(M, F, [Value]) of
-        Val ->
-            {AttrName, encode1(Val, Opts)}
-    catch
-        E:R ->
-            {error, {rec_fun, {M, F}, {E, R}}}
+            {error, {generic, {M, F}, {E, R}}}
     end.
 
 proplist_rule(AttrName, Value) ->
@@ -243,6 +221,24 @@ proplist_rule(AttrName, Value) ->
                      {ejson_util:atom_to_binary_cc(Prop), true}
              end, Value),
     {AttrName, [{<<"__type">>, <<"proplist">>} | Vals]}.
+
+maybe_pre_process({const, _Name, _Const}, _Tuple, Value) ->
+    {ok, Value};
+maybe_pre_process({_Type, Name, FieldOpts}, Tuple, Value) ->
+    case lists:keyfind(pre_encode, 1, FieldOpts) of
+        false ->
+            {ok, Value};
+        {pre_encode, {M, F}} ->
+            try erlang:apply(M, F, [Tuple, Value]) of
+                Val ->
+                    {ok, Val}
+            catch
+                E:R ->
+                    {error, {Name, E, R}}
+            end
+    end;
+maybe_pre_process(_Rule, _Tuple, Value) ->
+    {ok, Value}.
 
 %% Check duplicate fields in record definition. It gives false if each field is
 %% unique, otherwise it gives the duplicate field names.

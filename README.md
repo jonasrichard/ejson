@@ -2,7 +2,7 @@
 
 JSON library for Erlang on top of `jsx`. It gives a declarative interface for `jsx` by which we need to specify conversion rules and `ejson` will convert tuples according to the rules.
 
-I made this library to make easy not just the encoding but rather the decoding of JSONs to Erlang records. I also put emphasis to property-based test the encoding/decoding pair, so all features work in both way.
+I made this library to make easy not just the encoding but rather the decoding of JSONs to Erlang records. I also put emphasis on property-based test the encoding/decoding pair, so all features work in both way.
 
 There are API changes from the previous version see the Changelog section at the bottom.
 
@@ -201,63 +201,49 @@ to_json({event, 'node1@127.0.0.1'}).
 
 Often we don't want to send `erlang:timestamp()` as is to the client side but we want to calculate a time can be feed into Javascript's `new Date(long)`.
 
-There are two types of functions can be applied: field functions and record functions. Field functions are applied to the current field, record functions are always applied to the whole record.
+We have the possibility to convert values before passing to JSON encoding engine (and also we can convert values after the JSON engine decoded from an incoming JSON). There are two types of manipulations here: converting the value of a field, or create a new field out of the blue.
 
-Record functions can be used only during encoding, it means that we can create values that don't exist in the original record and can be computed from the whole record. But during decoding the values we got from JSON will be dropped for those fields. Field functions however two-way functions. If a time should be converted into Javascript time we need to provide the dual function which will convert Javascript time to - let us say - Erlang timestamp.
+When we define a field we can provide `pre_encode/2` or `post_decode/1` hooks. Let us see how to work with `erlang:timestamp/0`.
 
 ```erlang
--module(shapes).
+-module(time).
 
--record({square, {side}}).
--record({rect, {a_side, b_side}}).
-
--json({square, {number, side}, {rec_fun, area, {shapes, area}}}).
--json({rect, {number, "aSide"},
-             {number, "bSide"},
-             {rec_fun, "area", {shapes, area}}]}).
--json({shapes, [{list, "data"}]}).
+%% Numeric metric with timestamp time value
+-json({metric, {number, time, [{pre_encode, {?MODULE, to_int}},
+                               {post_decode, {?MODULE, to_ts}}]},
+               {number, value}}).
 
 %% Conversion function needs to be exported
--export([area/1]).
+-export([to_int/2, to_ts/1]).
 
-area({square, A}) -> A * A;
-area({rect, A, B}) -> A * B.
+%% Callback gets the whole record and the corresponding field value
+%% We can decide with which we want to deal with
+to_int(_MetricRecord, {Mega, Sec, Micro}) ->
+    %% Convert timestamp to javascript time
+    (Mega * 1000000 + Sec) * 1000 + (Micro div 1000).
 
-ejson:to_json({shapes, [{square, 4}, {rect, 6, 5}]}).
+to_ts(Millis) ->
+    Micro = (Millis rem 1000) * 1000,
+    T = Millis div 1000,
+    Sec = T rem 1000000,
+    Mega = (T - Sec) div 1000000.
+
+ejson:to_json({metric, os:timestamp(), 12.5}).
 ```
 
-We need a function which gets the tuple to be converted as a parameter (`area/1`). In the attribute definition we cannot refer to functions, so we need to write a `{Module, Function}` tuple which refers to `fun Module:Function/1`.
+During encoding the Erlang timestamp will be converted to millisecond values, which can be understood by Javascript. Decoding is done in the same fashion.
 
-The result is
-
-```json
-{
-  "__rec" : "shapes",
-  "data": [
-    {"__rec": "square", "side": 4, "area": 16},
-    {"__rec": "rect", "aSide": 6, "bSide": 5, "area": 30}
-  ]
-}
-```
-
-Another example using `field_fun` to convert times.
+When we don't want to (or we cannot) convert our tuples into a format which can be understood by ejson engine, we can convert our value into `jsx:term/0` type and vice versa.
 
 ```erlang
--json({event, id, {field_fun, time, {?MODULE, to_jstime},
-                                    {?MODULE, from_jstime}}}).
+-json({invoice, {generic, item, [{pre_encode, {?MODULE, to_jsx}},
+                                 {post_decode, {?MODULE, from_jsx}}]}}).
 
--export([to_jstime/1, from_jstime/1]).
+-export([to_jsx/1, from_jsx/1]).
 
-to_jstime({Macro, Time, Micro}) ->
-    ((Macro * 1000000) + Time) * 1000 + Micro div 1000.
-
-from_jstime(JsTime) ->
-    Micro = (JsTime rem 1000) * 1000,
-    Time = (JsTime div 1000) rem 100000,
-    Macro = JsTime div (1000 * 1000000),
-    {Macro, Time, Micro}.
-
-ejson:to_json({event, 300, {{1460, 1329112, 706500}}}).
+%% Here we cannot define well specified rules, so our function will create
+%% a list of binary name/value pairs, acceptable by jsx library. 
+ejson:to_json({invoice, get_invoice()}).
 ```
 
 ### Target types
