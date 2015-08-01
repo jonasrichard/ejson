@@ -45,12 +45,12 @@ rule() ->
                {1, {number, field_rule_name()}},
                {1, {number, field_rule_name(), [{default, integer()}]}},
                {1, {string, field_rule_name()}},
+               {1, {string, field_rule_name(),
+                    [{pre_encode, {?MODULE, pre_conv}},
+                     {post_decode, {?MODULE, post_conv}}]}},
                {1, {string, field_rule_name(), [{default, string()}]}},
                {1, {list, field_rule_name()}},      %% list of anything
                {1, skip},
-               {1, {field_fun, field_rule_name(), {?MODULE, fconv},
-                                                  {?MODULE, fconv}}},
-               {1, {rec_fun, field_rule_name(), {?MODULE, rconv}}},
                {1, {const, field_rule_name(), integer()}}
               ]).
 
@@ -62,11 +62,11 @@ record_rule() ->
          end).
 
 %% function for rec_fun and field_fun
-fconv(X) ->
-    X.
+pre_conv(_Tuple, Value) ->
+    Value.
 
-rconv(_) ->
-    1.
+post_conv(Value) ->
+    Value.
 
 proplist() ->
     list({symb_name(), integer()}).
@@ -98,10 +98,6 @@ basic({list, Name}, Rules, Depth) ->
               ]);
 basic({const, _Name, Const}, _Rules, _Depth) ->
     Const;
-basic({rec_fun, _Name, _MF1}, _Rules, _Depth) ->
-    integer();
-basic({field_fun, _Name, _MF1, _MF2}, _Rules, _Depth) ->
-    integer();
 basic({number, _Name}, _Rules, _Depth) ->
     integer();
 basic({number, _Name, _FieldOpts}, _Rules, _Depth) ->
