@@ -35,6 +35,23 @@ pre_post_callback_test_() ->
     {ok, D} = ejson_decode:decode(E, Opts),
     ?_assertEqual(Record, D).
 
+to_jsx(_Tuple, {High, Low}) ->
+    [{<<"high">>, High}, {<<"low">>, Low}].
+
+from_jsx(Attrs) ->
+    {_, High} = lists:keyfind(<<"high">>, 1, Attrs),
+    {_, Low} = lists:keyfind(<<"low">>, 1, Attrs),
+    {High, Low}.
+
+generic_test_() ->
+    Opts = [{item, {generic, count, [{pre_encode, {?MODULE, to_jsx}},
+                                     {post_decode, {?MODULE, from_jsx}}]}}],
+    Record = {item, {15, 2}},
+    {ok, E} = ejson_encode:encode(Record, Opts),
+    ?debugVal(E),
+    {ok, D} = ejson_decode:decode(E, Opts),
+    ?_assertEqual(Record, D).
+
 -define(TYPE(Val, Opts, Err),
         ?_assertEqual(Exp(Val, Err), Enc(Val, Opts))).
 

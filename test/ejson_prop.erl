@@ -169,26 +169,6 @@ prop_encode_decode() ->
                 end
             end)).
 
-pro_proplist_enc_dec() ->
-    ?FORALL(PropList, proplist(),
-            begin
-                Rules = [{simple, {proplist, "properties"}}],
-                Record = {simple, PropList},
-                %%?debugVal(Record),
-                case ejson_encode:encode(Record, Rules) of
-                    {error, duplicate_property} ->
-                        true;
-                    {ok, Enc} ->
-                        %%?debugVal(Enc),
-                        {simple, D} = ejson_decode:decode(shuffle(Enc), Rules),
-                        %%?debugVal(D),
-                        lists:all(
-                          fun(E) ->
-                                  lists:member(E, D)
-                          end, PropList)
-                end
-            end).
-
 prop_camel_case() ->
     ?FORALL(Name, symb_name(),
             begin

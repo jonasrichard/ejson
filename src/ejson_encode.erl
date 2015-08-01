@@ -99,12 +99,12 @@ convert([], _Tuple, _Opts, Result) ->
 convert([{Name, Value} | T], Tuple, Opts, Result) ->
     case maybe_pre_process(Name, Tuple, Value) of
         {ok, PreProcessed} ->
-            case apply_rule(Name, Tuple, PreProcessed, Opts) of
+            case apply_rule(Name, PreProcessed, Opts) of
                 undefined ->
                     convert(T, Tuple, Opts, Result);
                 {error, _} = Error ->
                     Error;
-                {NewName, NewValue} ->
+                {ok, {NewName, NewValue}} ->
                     convert(T, Tuple, Opts, [{?BIN(NewName), NewValue} | Result])
             end;
         {error, _} = Error2 ->
@@ -112,7 +112,7 @@ convert([{Name, Value} | T], Tuple, Opts, Result) ->
     end.
 
 %% Generate jsx attribute from ejson field
-apply_rule(Name, Tuple, Value, Opts) ->
+apply_rule(Name, Value, Opts) ->
     case Name of
         skip ->
             undefined;
@@ -144,90 +144,77 @@ apply_rule(Name, Tuple, Value, Opts) ->
             list_rule(AttrName, Value, Opts);
         {list, AttrName, _FieldOpts} ->
             list_rule(AttrName, Value, Opts);
-        {generic, AttrName, EncFun, _DecFun} ->
-            generic_rule(AttrName, EncFun, Tuple, Value);
-        {proplist, AttrName} ->
-            proplist_rule(AttrName, Value);
+        {generic, AttrName, _FieldOpts} ->
+            %% Generic encoding is handled in pre_process phase
+            {ok, {AttrName, Value}};
         {const, AttrName, Const} ->
-            {AttrName, encode1(Const, Opts)};
+            {ok, {AttrName, encode1(Const, Opts)}};
         AttrName ->
             {error, {invalid_field_rule, AttrName, Name}}
     end.
 
 boolean_rule(AttrName, undefined) ->
-    {AttrName, null};
+    {ok, {AttrName, null}};
 boolean_rule(AttrName, Value) when is_boolean(Value) ->
-    {AttrName, Value};
+    {ok, {AttrName, Value}};
 boolean_rule(AttrName, Value) ->
     {error, {boolean_value_expected, AttrName, Value}}.
 
 number_rule(AttrName, undefined) ->
-    {AttrName, null};
+    {ok, {AttrName, null}};
 number_rule(AttrName, Value) when is_number(Value) ->
-    {AttrName, Value};
+    {ok, {AttrName, Value}};
 number_rule(AttrName, Value) ->
     {error, {numeric_value_expected, AttrName, Value}}.
 
 atom_rule(AttrName, undefined) ->
-    {AttrName, null};
+    {ok, {AttrName, null}};
 atom_rule(AttrName, Value) when is_atom(Value) ->
-    {AttrName, atom_to_binary(Value, utf8)};
+    {ok, {AttrName, atom_to_binary(Value, utf8)}};
 atom_rule(AttrName, Value) ->
     {error, {atom_value_expected, AttrName, Value}}.
 
 binary_rule(AttrName, undefined) ->
-    {AttrName, null};
+    {ok, {AttrName, null}};
 binary_rule(AttrName, Value) when is_binary(Value) ->
-    {AttrName, Value};
+    {ok, {AttrName, Value}};
 binary_rule(AttrName, Value) ->
     {error, {binary_value_expected, AttrName, Value}}.
 
 string_rule(AttrName, undefined) ->
-    {AttrName, null};
+    {ok, {AttrName, null}};
 string_rule(AttrName, Value) when is_list(Value) ->
-    {AttrName, unicode:characters_to_binary(Value)};
+    {ok, {AttrName, unicode:characters_to_binary(Value)}};
 string_rule(AttrName, Value) ->
     {error, {string_value_expected, AttrName, Value}}.
 
 record_rule(AttrName, undefined, _FieldOpts, _Opts) ->
-    {AttrName, null};
+    {ok, {AttrName, null}};
 record_rule(AttrName, Value, _FieldOpts, Opts) when is_tuple(Value) ->
-    {AttrName, encode1(Value, Opts)};
+    {ok, {AttrName, encode1(Value, Opts)}};
 record_rule(AttrName, Value, _FieldOpts, _Opts) ->
     {error, {record_value_expected, AttrName, Value}}.
 
 list_rule(AttrName, undefined, _Opts) ->
-    {AttrName, null};
+    {ok, {AttrName, null}};
 list_rule(AttrName, Value, Opts) when is_list(Value) ->
     List = [encode1(V, Opts) || V <- Value],
-    {AttrName, List};
+    {ok, {AttrName, List}};
 list_rule(AttrName, Value, _Opts) ->
     {error, {list_value_expected, AttrName, Value}}.
 
-generic_rule(AttrName, {M, F}, Tuple, Value) ->
-    try erlang:apply(M, F, [Tuple, Value]) of
-        Val ->
-            {AttrName, Val}
-    catch
-        E:R ->
-            {error, {generic, {M, F}, {E, R}}}
-    end.
-
-proplist_rule(AttrName, Value) ->
-    Vals = lists:map(
-             fun({Prop, Val}) ->
-                     {ejson_util:atom_to_binary_cc(Prop), Val};
-                (Prop) ->
-                     {ejson_util:atom_to_binary_cc(Prop), true}
-             end, Value),
-    {AttrName, [{<<"__type">>, <<"proplist">>} | Vals]}.
-
 maybe_pre_process({const, _Name, _Const}, _Tuple, Value) ->
     {ok, Value};
-maybe_pre_process({_Type, Name, FieldOpts}, Tuple, Value) ->
+maybe_pre_process({Type, Name, FieldOpts}, Tuple, Value) ->
     case lists:keyfind(pre_encode, 1, FieldOpts) of
         false ->
-            {ok, Value};
+            case Type of
+                generic ->
+                    %% In case of generic pre_encode is mandatory
+                    {error, {no_pre_encode, Name, Value}};
+                _ ->
+                    {ok, Value}
+            end;
         {pre_encode, {M, F}} ->
             try erlang:apply(M, F, [Tuple, Value]) of
                 Val ->
