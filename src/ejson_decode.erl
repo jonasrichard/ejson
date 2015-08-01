@@ -145,11 +145,8 @@ extract_value(Rule, Value, Opts) ->
             extract_list(Value, [], Opts);
         {list, _, FieldOpts} ->
             extract_list(Value, FieldOpts, Opts);
-        {generic, _, _EncFun, DecFun} ->
-            extract_generic(Value, DecFun);
-        {proplist, _} ->
-            %% TODO proper conversion here!
-            undefined;
+        {generic, _Name, _FieldOpts} ->
+            Value;
         {const, _, _} ->
             undefined
     end.
@@ -213,21 +210,17 @@ extract_list(Value, FieldOpts, Opts) ->
             [decode1(V, Opts, Type) || V <- Value]
     end.
 
-extract_generic(Value, {M, F}) ->
-    try erlang:apply(M, F, [Value]) of
-        Val ->
-            Val
-    catch
-        E:R ->
-            {error, {field_run, {M, F}, {E, R}}}
-    end.
-
 maybe_post_process({const, _Name, _Const}, Value) ->
     {ok, Value};
-maybe_post_process({_Type, Name, FieldOpts}, Value) ->
+maybe_post_process({Type, Name, FieldOpts}, Value) ->
     case lists:keyfind(post_decode, 1, FieldOpts) of
         false ->
-            {ok, Value};
+            case Type of
+                generic ->
+                    {error, {no_post_decode, Name, Value}};
+                _ ->
+                    {ok, Value}
+            end;
         {post_decode, {M, F}} ->
             try erlang:apply(M, F, [Value]) of
                 NewVal ->

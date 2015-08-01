@@ -22,6 +22,8 @@
 
 -export([encode/2]).
 
+-include_lib("eunit/include/eunit.hrl").
+
 %% TODO: conditional macro for atom_to_binary
 -define(BIN(Name), if is_atom(Name) -> atom_to_binary(Name, utf8);
                       true          -> list_to_binary(Name)
@@ -99,7 +101,7 @@ convert([], _Tuple, _Opts, Result) ->
 convert([{Name, Value} | T], Tuple, Opts, Result) ->
     case maybe_pre_process(Name, Tuple, Value) of
         {ok, PreProcessed} ->
-            case apply_rule(Name, Tuple, PreProcessed, Opts) of
+            case apply_rule(Name, PreProcessed, Opts) of
                 undefined ->
                     convert(T, Tuple, Opts, Result);
                 {error, _} = Error ->
@@ -112,7 +114,7 @@ convert([{Name, Value} | T], Tuple, Opts, Result) ->
     end.
 
 %% Generate jsx attribute from ejson field
-apply_rule(Name, Tuple, Value, Opts) ->
+apply_rule(Name, Value, Opts) ->
     case Name of
         skip ->
             undefined;
@@ -144,10 +146,9 @@ apply_rule(Name, Tuple, Value, Opts) ->
             list_rule(AttrName, Value, Opts);
         {list, AttrName, _FieldOpts} ->
             list_rule(AttrName, Value, Opts);
-        {generic, AttrName, EncFun, _DecFun} ->
-            generic_rule(AttrName, EncFun, Tuple, Value);
-        {proplist, AttrName} ->
-            proplist_rule(AttrName, Value);
+        {generic, AttrName, _FieldOpts} ->
+            %% Generic encoding is handled in pre_process phase
+            {AttrName, Value};
         {const, AttrName, Const} ->
             {AttrName, encode1(Const, Opts)};
         AttrName ->
@@ -204,30 +205,18 @@ list_rule(AttrName, Value, Opts) when is_list(Value) ->
 list_rule(AttrName, Value, _Opts) ->
     {error, {list_value_expected, AttrName, Value}}.
 
-generic_rule(AttrName, {M, F}, Tuple, Value) ->
-    try erlang:apply(M, F, [Tuple, Value]) of
-        Val ->
-            {AttrName, Val}
-    catch
-        E:R ->
-            {error, {generic, {M, F}, {E, R}}}
-    end.
-
-proplist_rule(AttrName, Value) ->
-    Vals = lists:map(
-             fun({Prop, Val}) ->
-                     {ejson_util:atom_to_binary_cc(Prop), Val};
-                (Prop) ->
-                     {ejson_util:atom_to_binary_cc(Prop), true}
-             end, Value),
-    {AttrName, [{<<"__type">>, <<"proplist">>} | Vals]}.
-
 maybe_pre_process({const, _Name, _Const}, _Tuple, Value) ->
     {ok, Value};
-maybe_pre_process({_Type, Name, FieldOpts}, Tuple, Value) ->
+maybe_pre_process({Type, Name, FieldOpts}, Tuple, Value) ->
     case lists:keyfind(pre_encode, 1, FieldOpts) of
         false ->
-            {ok, Value};
+            case Type of
+                generic ->
+                    %% In case of generic pre_encode is mandatory
+                    {error, {no_pre_encode, Name, Value}};
+                _ ->
+                    {ok, Value}
+            end;
         {pre_encode, {M, F}} ->
             try erlang:apply(M, F, [Tuple, Value]) of
                 Val ->

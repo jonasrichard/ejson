@@ -144,28 +144,7 @@ In the 3rd parameter of the type definition we can write an option list with whi
 
 #### Proplists to objects
 
-The keys in proplist will be camel case converted and those will be the name of the attribute in the JSON object. In order that the decoder can create proplist from an object a `__type` property will be added as an extra.
-
-```erlang
--json({square, {number, side}}).
--json({shapes, {list, data}}).
--json({canvas, {proplist, opts}).
-
-to_json({canvas, [{width, 500}, {height, 300}, {bit_depth: 16}]}).
-```
-
-It is a simple object
-
-```json
-{
-  "__type": "proplist",
-  "width": 500,
-  "height": 300,
-  "bitDepth": 16
- }
-```
-
-Proplist is not a ready feature, since when property values are not numbers it doesn't work.
+In older version there was some proplist support but it was limited and the encoding/decoding wasn't clear. In the new version proplist can be converted by a generic rule, but the conversion functions need to be implemented by the developer (since there is no clear generic algorithm how to convert proplist to json).
 
 #### Transient fields
 

@@ -78,11 +78,7 @@ get_field_name({Type, Field, _FieldOpts}) when Type =:= atom orelse
                                                Type =:= record orelse
                                                Type =:= string ->
     Field;
-get_field_name({field_fun, Field, _EncFun, _DecFun}) ->
-    Field;
-get_field_name({field_fun, Field, _EncFun, _DecFun, _FieldOpts}) ->
-    Field;
-get_field_name({rec_fun, Field, _EncFun}) ->
+get_field_name({generic, Field, _FieldOpts}) ->
     Field;
 get_field_name(Field) ->
     {error, {invalid_field_rule, Field}}.
