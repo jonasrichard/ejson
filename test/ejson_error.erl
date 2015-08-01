@@ -25,3 +25,10 @@ duplicate_field_test_() ->
      ?_assert(F([{rec, {boolean, a}, {generic, a, []}}])),
      ?_assert(F([{rec, {const, a, 1}, {list, a}}]))
     ].
+
+error_conflict_test_() ->
+    Opts = [{message, {string, error, [{default, "No errors"}]}}],
+    Record = {message, "Syntax error"},
+    {ok, E} = ejson_encode:encode(Record, Opts),
+    {ok, D} = ejson_decode:decode(E, Opts),
+    ?_assertEqual(Record, D).

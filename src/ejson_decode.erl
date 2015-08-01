@@ -23,8 +23,6 @@
 -export([decode/2,
          decode/3]).
 
--include_lib("eunit/include/eunit.hrl").
-
 %% TODO:
 %% exact_value should return with {ok, Value} or {error, Reason}, so
 %% every time when we extract, we also need to case pattern match.
@@ -104,7 +102,7 @@ extract_fields([Field | F], AttrList, Opts) ->
                     case extract_value(Field, Value, Opts) of
                         {error, _} = Error ->
                             Error;
-                        Extracted ->
+                        {ok, Extracted} ->
                             case maybe_post_process(Field, Extracted) of
                                 {ok, NewVal} ->
                                     [NewVal | extract_fields(F, AttrList, Opts)];
@@ -146,68 +144,70 @@ extract_value(Rule, Value, Opts) ->
         {list, _, FieldOpts} ->
             extract_list(Value, FieldOpts, Opts);
         {generic, _Name, _FieldOpts} ->
-            Value;
+            %% Let the post processor function makes the conversion
+            {ok, Value};
         {const, _, _} ->
-            undefined
+            {ok, undefined}
     end.
 
 extract_atom(null) ->
-    undefined;
+    {ok, undefined};
 extract_atom(Value) ->
-    binary_to_atom(Value, utf8).
+    {ok, binary_to_atom(Value, utf8)}.
 
 extract_binary(null) ->
-    undefined;
+    {ok, undefined};
 extract_binary(Value) ->
-    Value.
+    {ok, Value}.
 
 extract_boolean(null) ->
-    undefined;
+    {ok, undefined};
 extract_boolean(Value) ->
-    Value.
+    {ok, Value}.
 
 extract_number(null) ->
-    undefined;
+    {ok, undefined};
 extract_number(Value) ->
-    Value.
+    {ok, Value}.
 
 extract_string(null) ->
-    undefined;
+    {ok, undefined};
 extract_string(Value) ->
-    unicode:characters_to_list(Value, utf8).
+    {ok, unicode:characters_to_list(Value, utf8)}.
 
 extract_record(null, FieldOpts, Opts) ->
     case proplists:get_value(default, FieldOpts) of
         undefined ->
-            undefined;
+            {ok, undefined};
         Default ->
             extract_record(Default, FieldOpts, Opts)
     end;
 extract_record(Value, FieldOpts, Opts) ->
     case proplists:get_value(type, FieldOpts) of
         undefined ->
-            decode1(Value, Opts);
+            {ok, decode1(Value, Opts)};
         Type ->
-            decode1(Value, Opts, Type)
+            {ok, decode1(Value, Opts, Type)}
     end.
 
 extract_list(null, _FieldOpts, _Opts) ->
-    undefined;
+    {ok, undefined};
 extract_list(Value, FieldOpts, Opts) ->
     case proplists:get_value(type, FieldOpts) of
         undefined ->
             %% No target type for list element, it can be an attrlist
             %% or a primitive value
-            lists:map(
+            L = lists:map(
               fun(V) when is_list(V) ->
                       {ok, D} = decode(V, Opts),
                       %% TODO make an error case and gives back error
                       D;
                  (V) ->
                       V
-              end, Value);
+              end, Value),
+            {ok, L};
         Type ->
-            [decode1(V, Opts, Type) || V <- Value]
+            {ok, [decode1(V, Opts, Type) || V <- Value]}
     end.
 
 maybe_post_process({const, _Name, _Const}, Value) ->

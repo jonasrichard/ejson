@@ -22,8 +22,6 @@
 
 -export([encode/2]).
 
--include_lib("eunit/include/eunit.hrl").
-
 %% TODO: conditional macro for atom_to_binary
 -define(BIN(Name), if is_atom(Name) -> atom_to_binary(Name, utf8);
                       true          -> list_to_binary(Name)
@@ -106,7 +104,7 @@ convert([{Name, Value} | T], Tuple, Opts, Result) ->
                     convert(T, Tuple, Opts, Result);
                 {error, _} = Error ->
                     Error;
-                {NewName, NewValue} ->
+                {ok, {NewName, NewValue}} ->
                     convert(T, Tuple, Opts, [{?BIN(NewName), NewValue} | Result])
             end;
         {error, _} = Error2 ->
@@ -148,60 +146,60 @@ apply_rule(Name, Value, Opts) ->
             list_rule(AttrName, Value, Opts);
         {generic, AttrName, _FieldOpts} ->
             %% Generic encoding is handled in pre_process phase
-            {AttrName, Value};
+            {ok, {AttrName, Value}};
         {const, AttrName, Const} ->
-            {AttrName, encode1(Const, Opts)};
+            {ok, {AttrName, encode1(Const, Opts)}};
         AttrName ->
             {error, {invalid_field_rule, AttrName, Name}}
     end.
 
 boolean_rule(AttrName, undefined) ->
-    {AttrName, null};
+    {ok, {AttrName, null}};
 boolean_rule(AttrName, Value) when is_boolean(Value) ->
-    {AttrName, Value};
+    {ok, {AttrName, Value}};
 boolean_rule(AttrName, Value) ->
     {error, {boolean_value_expected, AttrName, Value}}.
 
 number_rule(AttrName, undefined) ->
-    {AttrName, null};
+    {ok, {AttrName, null}};
 number_rule(AttrName, Value) when is_number(Value) ->
-    {AttrName, Value};
+    {ok, {AttrName, Value}};
 number_rule(AttrName, Value) ->
     {error, {numeric_value_expected, AttrName, Value}}.
 
 atom_rule(AttrName, undefined) ->
-    {AttrName, null};
+    {ok, {AttrName, null}};
 atom_rule(AttrName, Value) when is_atom(Value) ->
-    {AttrName, atom_to_binary(Value, utf8)};
+    {ok, {AttrName, atom_to_binary(Value, utf8)}};
 atom_rule(AttrName, Value) ->
     {error, {atom_value_expected, AttrName, Value}}.
 
 binary_rule(AttrName, undefined) ->
-    {AttrName, null};
+    {ok, {AttrName, null}};
 binary_rule(AttrName, Value) when is_binary(Value) ->
-    {AttrName, Value};
+    {ok, {AttrName, Value}};
 binary_rule(AttrName, Value) ->
     {error, {binary_value_expected, AttrName, Value}}.
 
 string_rule(AttrName, undefined) ->
-    {AttrName, null};
+    {ok, {AttrName, null}};
 string_rule(AttrName, Value) when is_list(Value) ->
-    {AttrName, unicode:characters_to_binary(Value)};
+    {ok, {AttrName, unicode:characters_to_binary(Value)}};
 string_rule(AttrName, Value) ->
     {error, {string_value_expected, AttrName, Value}}.
 
 record_rule(AttrName, undefined, _FieldOpts, _Opts) ->
-    {AttrName, null};
+    {ok, {AttrName, null}};
 record_rule(AttrName, Value, _FieldOpts, Opts) when is_tuple(Value) ->
-    {AttrName, encode1(Value, Opts)};
+    {ok, {AttrName, encode1(Value, Opts)}};
 record_rule(AttrName, Value, _FieldOpts, _Opts) ->
     {error, {record_value_expected, AttrName, Value}}.
 
 list_rule(AttrName, undefined, _Opts) ->
-    {AttrName, null};
+    {ok, {AttrName, null}};
 list_rule(AttrName, Value, Opts) when is_list(Value) ->
     List = [encode1(V, Opts) || V <- Value],
-    {AttrName, List};
+    {ok, {AttrName, List}};
 list_rule(AttrName, Value, _Opts) ->
     {error, {list_value_expected, AttrName, Value}}.
 
