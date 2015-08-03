@@ -61,7 +61,7 @@ to_json_modules(Term, ModuleList) ->
     Opts = json_props(ModuleList),
     to_json(Term, Opts).
 
-to_jsx_modules(Term, ModuleList) ->
+to_jsx_modules(Term, ModuleList) when is_list(ModuleList) ->
     Opts = json_props(ModuleList),
     to_jsx(Term, Opts).
 
