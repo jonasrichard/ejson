@@ -14,6 +14,6 @@ default_test() ->
     B = {book, "Treasure Island", [{person, "Robert Louis Stevenson"}], 1911},
     {ok, Enc} = to_json(B),
     % ?debugVal(Enc),
-    {ok, Dec} = from_json(Enc),
+    {ok, Dec} = from_json(Enc, book),
     % ?debugVal(Dec),
     {book, _, [{person, _, undefined}], 1911} = Dec.

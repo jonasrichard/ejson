@@ -12,5 +12,4 @@ skip_test() ->
 
     ?assertEqual(<<"/index.html">>, json_prop(J, "path")),
     ?assertEqual(<<"GET">>, json_prop(J, "method")),
-    ?assertEqual(<<"request">>, json_prop(J, "__rec")),
-    ?assertEqual(3, length(J)).
+    ?assertEqual(2, length(J)).

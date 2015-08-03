@@ -32,7 +32,7 @@ pre_post_callback_test_() ->
     Record = {time, 2300},
     {ok, E} = ejson_encode:encode(Record, Opts),
     ?debugVal(E),
-    {ok, D} = ejson_decode:decode(E, Opts),
+    {ok, D} = ejson_decode:decode(E, Opts, time),
     ?_assertEqual(Record, D).
 
 to_jsx(_Tuple, {High, Low}) ->
@@ -49,7 +49,7 @@ generic_test_() ->
     Record = {item, {15, 2}},
     {ok, E} = ejson_encode:encode(Record, Opts),
     ?debugVal(E),
-    {ok, D} = ejson_decode:decode(E, Opts),
+    {ok, D} = ejson_decode:decode(E, Opts, item),
     ?_assertEqual(Record, D).
 
 -define(TYPE(Val, Opts, Err),
@@ -76,7 +76,7 @@ embedded_record_test_() ->
             {address, {string, city}, {string, country}}],
     Rec = {person, "Joe", {address, "Budapest", "Hun"}},
     {ok, Enc} = ejson_encode:encode(Rec, Opts),
-    {ok, Dec} = ejson_decode:decode(Enc, Opts),
+    {ok, Dec} = ejson_decode:decode(Enc, Opts, person),
     ?debugVal(Dec),
     Addr = json_prop(Enc, "address"),
     [?_assertEqual(<<"Joe">>, json_prop(Enc, "name")),
