@@ -19,18 +19,6 @@
 %%%
 %%% This module contains the main entry points of the library such as
 %%% encoding, decoding. Those functions can result in jsx terms or binaries.
-%%%
-%%% Encoding rules can be defined as wild attributes.
-%%%
-%%% ```
-%%% -json({record_name, rule1, rule2, ...}).
-%%% '''
-%%%
-%%% - skip
-%%%   skip the value, don't include it in the json output
-%%% - {atom, name}
-%%%   Value is an atom, it will be converted to string according. The field
-%%%   name will be the name specified.
 %%% @end
 %%%-----------------------------------------------------------------------------
 -module(ejson).
@@ -40,9 +28,7 @@
         to_jsx/2,
         to_json_modules/2,
         to_jsx_modules/2,
-        from_json/2,
         from_json/3,
-        from_json_modules/2,
         from_json_modules/3,
         json_props/1
     ]).
@@ -75,7 +61,7 @@ to_json_modules(Term, ModuleList) ->
     Opts = json_props(ModuleList),
     to_json(Term, Opts).
 
-to_jsx_modules(Term, ModuleList) ->
+to_jsx_modules(Term, ModuleList) when is_list(ModuleList) ->
     Opts = json_props(ModuleList),
     to_jsx(Term, Opts).
 
@@ -91,19 +77,11 @@ to_json(Term, Opts) ->
 to_jsx(Term, Opts) ->
     ejson_encode:encode(Term, Opts).
 
-from_json_modules(Binary, ModuleList) ->
-    Opts = json_props(ModuleList),
-    from_json(Binary, Opts).
-
 from_json_modules(Binary, ModuleList, Record) ->
     Opts = json_props(ModuleList),
     from_json(Binary, Opts, Record).
 
-from_json(Binary, Opts) ->
-    Decoded = jsx:decode(Binary),
-    ejson_decode:decode(Decoded, Opts).
-
-from_json(Binary, Opts, Record) ->
+from_json(Binary, Record, Opts) ->
     Decoded = jsx:decode(Binary),
     ejson_decode:decode(Decoded, Opts, Record).
 

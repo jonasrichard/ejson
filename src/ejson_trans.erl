@@ -27,13 +27,13 @@ walk(Ast) ->
                  true ->
                      [];
                  false ->
-                     [gen_fun(to_json, Records, EofLine)]
+                     [gen_encode_fun(Records, EofLine)]
              end,
     FromJson = case is_fun_defined(AstOut, from_json, 1) of
                    true ->
                        [];
                    false ->
-                       [gen_fun(from_json, Records, EofLine)]
+                       [gen_decode_fun(Records, EofLine)]
                end,
 
     %% Add function definition if they don't exist yes
@@ -72,12 +72,24 @@ is_fun_defined([{function, _Line, FunName, Arity, _} | _Rest], FunName, Arity) -
 is_fun_defined([_H | Rest], FunName, Arity) ->
     is_fun_defined(Rest, FunName, Arity).
 
-gen_fun(Name, Records, Line) ->
-    {function, Line, Name, 1,
+gen_encode_fun(Records, Line) ->
+    {function, Line, to_json, 1,
         [{clause, Line, [{var, Line, 'P'}], [],
             [{call, Line,
-                {remote, Line, {atom, Line, ejson}, {atom, Line, Name}},
+                {remote, Line, {atom, Line, ejson}, {atom, Line, to_json}},
                 [{var, Line, 'P'},
+                 erl_parse:abstract(Records, [{line, Line}])]
+            }]
+        }]
+    }.
+
+gen_decode_fun(Records, Line) ->
+    {function, Line, from_json, 2,
+        [{clause, Line, [{var, Line, 'P'}, {var, Line, 'Q'}], [],
+            [{call, Line,
+                {remote, Line, {atom, Line, ejson}, {atom, Line, from_json}},
+                [{var, Line, 'P'},
+                 {var, Line, 'Q'},
                  erl_parse:abstract(Records, [{line, Line}])]
             }]
         }]
@@ -89,7 +101,7 @@ add_compile_options([]) ->
     [];
 add_compile_options([{attribute, Line, module, _Module} = M | R]) ->
     C = {attribute, Line, compile,
-         {nowarn_unused_function, [{from_json, 1}, {to_json, 1}]}},
+         {nowarn_unused_function, [{from_json, 2}, {to_json, 1}]}},
     [M, C | R];
 add_compile_options([H | T]) ->
     [H | add_compile_options(T)].

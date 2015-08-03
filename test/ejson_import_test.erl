@@ -6,7 +6,7 @@
 
 -json_include([ejson_trans_test]).
 
--json({library, {string, name}, {list, books}}).
+-json({library, {string, name}, {list, books, [{type, book}]}}).
 
 include_test_() ->
     A1 = {author, "John", undefined, "Smith"},
@@ -15,5 +15,5 @@ include_test_() ->
          [{book, "How to draw horses", A1, 1987},
           {book, "History of rats", A2, 1944}]},
     {ok, E} = to_json(L),
-    {ok, D} = from_json(E),
+    {ok, D} = from_json(E, library),
     [?_assertEqual(L, D)].

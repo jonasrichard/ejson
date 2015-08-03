@@ -163,7 +163,8 @@ prop_encode_decode() ->
                         true;
                     {ok, Enc} ->
 %%                        ?debugVal(Enc),
-                        {ok, Dec} = ejson_decode:decode(shuffle(Enc), Rules),
+                        Type = element(1, Record),
+                        {ok, Dec} = ejson_decode:decode(shuffle(Enc), Rules, Type),
 %%                        ?debugVal(Dec),
                         equal(Record, Dec, Rules)
                 end

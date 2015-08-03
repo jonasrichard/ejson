@@ -30,5 +30,5 @@ error_conflict_test_() ->
     Opts = [{message, {string, error, [{default, "No errors"}]}}],
     Record = {message, "Syntax error"},
     {ok, E} = ejson_encode:encode(Record, Opts),
-    {ok, D} = ejson_decode:decode(E, Opts),
+    {ok, D} = ejson_decode:decode(E, Opts, message),
     ?_assertEqual(Record, D).

@@ -22,23 +22,6 @@
 
 -export([encode/2]).
 
-%% TODO: conditional macro for atom_to_binary
--define(BIN(Name), if is_atom(Name) -> atom_to_binary(Name, utf8);
-                      true          -> list_to_binary(Name)
-                   end).
-
-%%------------------------------------------------------------------------------
-%% Encoding rules
-%%
-%% -json({record_name, [Rules]}).
-%%
-%% Rule can be a:
-%%   - string which will be the attribute name in json object
-%%   - {atom, string}. String is the name of the attr, the value is an atom.
-%%     It is useful when decoding since strings can be decoded either to
-%%     a string or to an atom.
-%%------------------------------------------------------------------------------
-
 -spec encode(term(), list()) -> {ok, jsx:json_term()} |
                                 {error, {duplicate_records, list(atom())}} |
                                 {error, {duplicate_fields, list(binary())}}. 
@@ -64,8 +47,7 @@ encode1(Tuple, Opts) when is_tuple(Tuple) andalso is_atom(element(1, Tuple)) ->
             Error;
         Fields ->
             %% Convert each values
-            Meta = [{<<"__rec">>, atom_to_binary(RecordName, utf8)}],
-            case convert(ejson_util:zip(Fields, Values), Tuple, Opts, Meta) of
+            case convert(ejson_util:zip(Fields, Values), Tuple, Opts, []) of
                 {error, _} = Error ->
                     Error;
                 AttrList ->
@@ -93,7 +75,6 @@ validate_rules(Opts) ->
             {error, {duplicate_records, lists:usort(Records)}}
     end.
 
-
 convert([], _Tuple, _Opts, Result) ->
     Result;
 convert([{Name, Value} | T], Tuple, Opts, Result) ->
@@ -104,8 +85,12 @@ convert([{Name, Value} | T], Tuple, Opts, Result) ->
                     convert(T, Tuple, Opts, Result);
                 {error, _} = Error ->
                     Error;
+                {ok, {NewName, NewValue}} when is_atom(NewName) ->
+                    convert(T, Tuple, Opts, [{atom_to_binary(NewName, utf8),
+                                              NewValue} | Result]);
                 {ok, {NewName, NewValue}} ->
-                    convert(T, Tuple, Opts, [{?BIN(NewName), NewValue} | Result])
+                    convert(T, Tuple, Opts, [{list_to_binary(NewName), NewValue} |
+                                             Result])
             end;
         {error, _} = Error2 ->
             Error2
@@ -141,7 +126,7 @@ apply_rule(Name, Value, Opts) ->
         {record, AttrName, FieldOpts} ->
             record_rule(AttrName, Value, FieldOpts, Opts);
         {list, AttrName} ->
-            list_rule(AttrName, Value, Opts);
+            mixed_list_rule(AttrName, Value, Opts);
         {list, AttrName, _FieldOpts} ->
             list_rule(AttrName, Value, Opts);
         {generic, AttrName, _FieldOpts} ->
@@ -190,8 +175,15 @@ string_rule(AttrName, Value) ->
 
 record_rule(AttrName, undefined, _FieldOpts, _Opts) ->
     {ok, {AttrName, null}};
-record_rule(AttrName, Value, _FieldOpts, Opts) when is_tuple(Value) ->
-    {ok, {AttrName, encode1(Value, Opts)}};
+record_rule(AttrName, Value, FieldOpts, Opts) when is_tuple(Value) ->
+    case lists:keyfind(type, 1, FieldOpts) of
+        false ->
+            %% If record type is not specified add __rec meta data
+            R = encode1(Value, Opts),
+            {ok, {AttrName, add_rec_type(element(1, Value), R)}};
+        _ ->
+            {ok, {AttrName, encode1(Value, Opts)}}
+    end;
 record_rule(AttrName, Value, _FieldOpts, _Opts) ->
     {error, {record_value_expected, AttrName, Value}}.
 
@@ -201,6 +193,34 @@ list_rule(AttrName, Value, Opts) when is_list(Value) ->
     List = [encode1(V, Opts) || V <- Value],
     {ok, {AttrName, List}};
 list_rule(AttrName, Value, _Opts) ->
+    {error, {list_value_expected, AttrName, Value}}.
+
+mixed_list_rule(AttrName, undefined, _Opts) ->
+    {ok, {AttrName, null}};
+mixed_list_rule(AttrName, Value, Opts) when is_list(Value) ->
+    try lists:map(
+          fun(N) when is_number(N) ->
+                  N;
+             (B) when is_boolean(B) ->
+                  B;
+             (T) when is_tuple(T) ->
+                  Rec = element(1, T),
+                  case encode1(T, Opts) of
+                      {error, R} ->
+                          throw(R);
+                      AttrList ->
+                          add_rec_type(Rec, AttrList)
+                  end;
+             (E) ->
+                  throw({invalid_list_item, E})
+          end, Value) of
+        List ->
+            {ok, {AttrName, List}}
+    catch
+        E:R ->
+            {error, AttrName, E, R}
+    end;
+mixed_list_rule(AttrName, Value, _Opts) ->
     {error, {list_value_expected, AttrName, Value}}.
 
 maybe_pre_process({const, _Name, _Const}, _Tuple, Value) ->
@@ -226,6 +246,9 @@ maybe_pre_process({Type, Name, FieldOpts}, Tuple, Value) ->
     end;
 maybe_pre_process(_Rule, _Tuple, Value) ->
     {ok, Value}.
+
+add_rec_type(Type, List) ->
+    [{<<"__rec">>, atom_to_binary(Type, utf8)} | List].
 
 %% Check duplicate fields in record definition. It gives false if each field is
 %% unique, otherwise it gives the duplicate field names.

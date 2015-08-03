@@ -20,14 +20,7 @@
 %%%-------------------------------------------------------------------
 -module(ejson_decode).
 
--export([decode/2,
-         decode/3]).
-
-%% TODO:
-%% exact_value should return with {ok, Value} or {error, Reason}, so
-%% every time when we extract, we also need to case pattern match.
-%% So in the end we don't need decode and decode1 wrappers to generate
-%% {ok, Value}, etc.
+-export([decode/3]).
 
 %%-----------------------------------------------------------------------------
 %% @doc Decode JSON from jsx attrlist.
@@ -35,14 +28,6 @@
 %% information about the target type (__rec or so).
 %% @end
 %%-----------------------------------------------------------------------------
-decode(AttrList, Opts) ->
-    case decode1(AttrList, Opts) of
-        {error, _} = Error ->
-            Error;
-        Result ->
-            {ok, Result}
-    end.
-
 decode(AttrList, Opts, RecordName) ->
     case decode1(AttrList, Opts, RecordName) of
         {error, _} = Error ->
@@ -185,6 +170,7 @@ extract_record(null, FieldOpts, Opts) ->
 extract_record(Value, FieldOpts, Opts) ->
     case proplists:get_value(type, FieldOpts) of
         undefined ->
+            %% TODO error handling
             {ok, decode1(Value, Opts)};
         Type ->
             {ok, decode1(Value, Opts, Type)}
@@ -199,14 +185,18 @@ extract_list(Value, FieldOpts, Opts) ->
             %% or a primitive value
             L = lists:map(
               fun(V) when is_list(V) ->
-                      {ok, D} = decode(V, Opts),
-                      %% TODO make an error case and gives back error
-                      D;
+                      case get_rec_type(V) of
+                          undefined ->
+                              {error, no_record_type, V};
+                          Type ->
+                              decode1(V, Opts, Type)
+                      end;
                  (V) ->
                       V
               end, Value),
             {ok, L};
         Type ->
+            %% TODO error handling
             {ok, [decode1(V, Opts, Type) || V <- Value]}
     end.
 
@@ -232,6 +222,14 @@ maybe_post_process({Type, Name, FieldOpts}, Value) ->
     end;
 maybe_post_process(_, Value) ->
     {ok, Value}.
+
+get_rec_type(JsxList) ->
+    case lists:keyfind(<<"__rec">>, 1, JsxList) of
+        false ->
+            undefined;
+        {_, Rec} ->
+            binary_to_atom(Rec, utf8)
+    end.
 
 %% Get the default value from a field rule
 default_value({Type, _, Opts}) when Type =:= atom orelse
