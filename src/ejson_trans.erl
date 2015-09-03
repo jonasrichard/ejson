@@ -17,11 +17,7 @@ walk(Ast) ->
     EofLine = get_eof_line(Ast),
 
     %% Collect ejson attributes
-    {AstOut, Records} = walk(Ast, [], []),
-
-    %% Get the number of the last line (we will put from_json and to_json
-    %% functions there)
-    {eof, LastLine} = hd(AstOut),
+    {AstOut, Records, LastLine} = walk(Ast, [], [], 0),
     
     ToJson = case is_fun_defined(AstOut, to_json, 1) of
                  true ->
@@ -37,20 +33,24 @@ walk(Ast) ->
                end,
 
     %% Add function definition if they don't exist yes
-    R = lists:reverse([{eof, LastLine}] ++ ToJson ++ FromJson ++ tl(AstOut)),
+    R = lists:reverse([{eof, LastLine}] ++ ToJson ++ FromJson ++ AstOut),
     R2 = add_compile_options(R),
     %%?D(R2),
     R2.
 
-walk([], AstOut, Records) ->
-    {AstOut, Records};
-walk([{attribute, _Line, json, RecordSpec} = Attr | T], A, R) ->
-    walk(T, [Attr | A], [RecordSpec | R]);
-walk([{attribute, _Line, json_include, Modules} = Attr | T], A, R) ->
+walk([], AstOut, Records, LastLine) ->
+    {AstOut, Records, LastLine};
+walk([{eof, LastLine} | T], A, R, _) ->
+    %% Get the number of the last line (we will put from_json and to_json
+    %% functions there)
+    walk(T, A, R, LastLine);
+walk([{attribute, _Line, json, RecordSpec} = Attr | T], A, R, L) ->
+    walk(T, [Attr | A], [RecordSpec | R], L);
+walk([{attribute, _Line, json_include, Modules} = Attr | T], A, R, L) ->
     %% TODO read attributes
-    walk(T, [Attr | A], read_attributes(Modules) ++ R);
-walk([H | T], A, R) ->
-    walk(T, [H | A], R).
+    walk(T, [Attr | A], read_attributes(Modules) ++ R, L);
+walk([H | T], A, R, L) ->
+    walk(T, [H | A], R, L).
 
 read_attributes([]) ->
     [];
