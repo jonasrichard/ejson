@@ -77,9 +77,9 @@ extract_fields([Field | F], AttrList, Opts) ->
                 false ->
                     %% No value for field, check if we have default
                     case default_value(Field) of
-                        undefined ->
+                        false ->
                             {error, {no_value_for, Field}};
-                        DefVal ->
+                        {_, DefVal} ->
                             [DefVal | extract_fields(F, AttrList, Opts)]
                     end;
                 {_, Value} ->
@@ -239,6 +239,6 @@ default_value({Type, _, Opts}) when Type =:= atom orelse
                                     Type =:= number orelse
                                     Type =:= record orelse
                                     Type =:= string ->
-    proplists:get_value(default, Opts);
+    lists:keyfind(default, 1, Opts);
 default_value(_) ->
-    undefined.
+    false.
