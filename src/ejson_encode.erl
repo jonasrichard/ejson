@@ -80,7 +80,7 @@ convert([], _Tuple, _Opts, Result) ->
 convert([{Name, Value} | T], Tuple, Opts, Result) ->
     case maybe_pre_process(Name, Tuple, Value) of
         {ok, PreProcessed} ->
-            case apply_rule(Name, PreProcessed, Opts) of
+            case maybe_apply_rule(Name, PreProcessed, Opts) of
                 undefined ->
                     convert(T, Tuple, Opts, Result);
                 {error, _} = Error ->
@@ -97,6 +97,16 @@ convert([{Name, Value} | T], Tuple, Opts, Result) ->
     end.
 
 %% Generate jsx attribute from ejson field
+maybe_apply_rule({_, _, FieldOpts} = Name, undefined = Value, Opts) ->
+    case lists:keyfind(default, 1, FieldOpts) of
+        {_, undefined} ->
+            undefined;
+        _ ->
+            apply_rule(Name, Value, Opts)
+    end;
+maybe_apply_rule(Name, Value, Opts) ->
+    apply_rule(Name, Value, Opts).
+
 apply_rule(Name, Value, Opts) ->
     case Name of
         skip ->

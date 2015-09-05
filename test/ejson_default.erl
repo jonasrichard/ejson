@@ -42,3 +42,8 @@ default_undefined_test_() ->
     Enc = <<"{\"name\":\"Mars\"}">>,
     {ok, Dec} = from_json(Enc, planet),
     ?_assertMatch({planet, <<"Mars">>, undefined}, Dec).
+
+default_undefined_encode_test_() ->
+    P = {planet, <<"Mars">>, undefined},
+    {ok, Enc} = to_json(P),
+    ?_assertMatch(<<"{\"name\":\"Mars\"}">>, Enc).
