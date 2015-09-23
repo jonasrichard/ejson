@@ -1,6 +1,5 @@
 {application, ejson, [
     {description, "Generate record to JSON converters"},
-    {id, ejson},
     {vsn, "0.2.0"},
     {registered, []},
     {applications, [
