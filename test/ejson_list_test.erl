@@ -24,3 +24,29 @@ list_test() ->
     ?assertEqual(251, json_prop(B1, "numberOfPages")),
     ?assertEqual(<<"TDD - the easy way">>, json_prop(B2, "title")),
     ?assertEqual(760, json_prop(B2, "numberOfPages")).
+
+mixed_list_test() ->
+    Options = [{shapes, {list, shapes}},
+               {square, {number, a}},
+               {rect, {number, a}, {number, b}},
+               {circle, {number, r}}],
+
+    Shapes = {shapes, [{square, 1},
+                       {square, 3},
+                       {rect, 2, 3},
+                       {circle, 5}]},
+
+    {ok, J} = ejson_encode:encode(Shapes, Options),
+
+    ShapeList = json_prop(J, "shapes"),
+    ?assertEqual(4, length(ShapeList)),
+
+    [Sq1, Sq2, R1, C1] = ShapeList,
+    ?assertEqual(1, json_prop(Sq1, "a")),
+    ?assertEqual(3, json_prop(Sq2, "a")),
+    ?assertEqual(2, json_prop(R1, "a")),
+    ?assertEqual(3, json_prop(R1, "b")),
+    ?assertEqual(5, json_prop(C1, "r")),
+
+    {ok, D} = ejson_decode:decode(J, Options, shapes),
+    ?assertEqual(Shapes, D).
