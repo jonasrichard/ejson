@@ -1,5 +1,8 @@
 -module(ejson_prop).
 
+-export([pre_conv/2,
+         post_conv/1]).
+
 -include_lib("proper/include/proper.hrl").
 -include_lib("eunit/include/eunit.hrl").
 

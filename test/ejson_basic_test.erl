@@ -1,8 +1,14 @@
 -module(ejson_basic_test).
 
+-export([enc_fun/2,
+         dec_fun/1,
+         to_jsx/2,
+         from_jsx/1]).
+
 -import(ejson_test_util, [json_prop/2, json_path/2]).
 
 -include_lib("eunit/include/eunit.hrl").
+
 
 value_test_() ->
     Cases = [1, 3.4, true, false],

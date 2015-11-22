@@ -55,6 +55,7 @@ walk([H | T], A, R, L) ->
 read_attributes([]) ->
     [];
 read_attributes([Module | Modules]) ->
+    ?W("Path ~p~n", [code:get_path()]),
     case code:load_file(Module) of
         {error, Reason} ->
             ?W("Cannot load module ~p: ~p~n", [Module, Reason]),

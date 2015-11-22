@@ -1,27 +1,18 @@
 
-ERL_APPS = erts \
-		   kernel \
-		   stdlib
+PROJECT 	= ejson
 
-.PHONY: analyze compile clean example test
+DEPS 		= jsx
+TEST_DEPS	= proper
 
-clean:
-	./rebar clean
+dep_jsx_commit 	= 2.7.2
 
-compile:
-	./rebar compile
+COMPILE_FIRST		= ejson_trans
+TEST_COMPILE_FIRST	= ejson_trans_test
+TEST_ERLC_OPTS 		= -pz $(CURDIR)/test
 
-test:
-	./rebar eunit apps=ejson
+tests:: app
+	$(gen_verbose) erlc -v $(TEST_ERLC_OPTS) -I include/ -o $(TEST_DIR) \
+		$(foreach f,$(TEST_COMPILE_FIRST), test/$(f).erl) -pa ebin/
 
-.dialyzer_plt:
-	dialyzer --output_plt $@ --build_plt --apps $(ERL_APPS) deps/jsx/ebin
-
-analyze: .dialyzer_plt
-	dialyzer --no_check_plt --no_native -Wrace_conditions --plt $< --apps ebin
-
-example:
-	cd examples; \
-	../rebar -C rebar.config compile;
-	erl -pz deps/jsx/ebin ebin examples/apps/records/ebin -noshell -s records -s init stop
+include erlang.mk
 
