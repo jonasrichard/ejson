@@ -3,16 +3,16 @@
 -include_lib("eunit/include/eunit.hrl").
 
 specified_rec_type_test() ->
-    Opts = [{book, {string, title}, {list, "authors", [{type, author}]}},
-            {author, {string, name}}],
+    Rules = [{book, {string, title}, {list, "authors", [{type, author}]}},
+             {author, {string, name}}],
     Rec = {book, "History of Rome", [{author, "John Smith"},
                                      {author, "Bob Doe"}]},
-    {ok, J} = ejson:to_jsx(Rec, Opts),
+    {ok, J} = ejson:to_jsx(Rec, Rules, []),
     
     % Remove __rec type information
     J2 = deep_delete_rec(J),
     
-    {ok, R2} = ejson_decode:decode(J2, Opts, book),
+    {ok, R2} = ejson_decode:decode(J2, book, Rules, []),
     {book, "History of Rome", Authors} = R2,
     {author, "John Smith"} = hd(Authors).
 

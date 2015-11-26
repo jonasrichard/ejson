@@ -20,7 +20,7 @@
 %%%-------------------------------------------------------------------
 -module(ejson_decode).
 
--export([decode/3]).
+-export([decode/4]).
 
 %%-----------------------------------------------------------------------------
 %% @doc Decode JSON from jsx attrlist.
@@ -28,30 +28,30 @@
 %% information about the target type (__rec or so).
 %% @end
 %%-----------------------------------------------------------------------------
-decode(AttrList, Opts, RecordName) ->
-    case decode1(AttrList, Opts, RecordName) of
+decode(AttrList, RecordName, Rules, Opts) ->
+    case decode1(AttrList, RecordName, Rules, Opts) of
         {error, _} = Error ->
             Error;
         Result ->
             {ok, Result}
     end.
 
-decode1(AttrList, Opts) ->
+decode1(AttrList, Rules, Opts) ->
     case lists:keyfind(<<"__rec">>, 1, AttrList) of
         {_, Rec} ->
-            RecordName = list_to_atom(binary_to_list(Rec)),
-            decode1(AttrList, Opts, RecordName);
+            RecordName = binary_to_atom(Rec, utf8),
+            decode1(AttrList, RecordName, Rules, Opts);
         false ->
             {error, no_record_name}
     end.
 
 %% When we have proper target record name (3rd parameter as atom)
-decode1(AttrList, Opts, RecordName) ->
-    case ejson_util:get_fields(RecordName, Opts) of
+decode1(AttrList, RecordName, Rules, Opts) ->
+    case ejson_util:get_fields(RecordName, Rules) of
         {error, _} = Error ->
             Error;
         Fields ->
-            case extract_fields(Fields, AttrList, Opts) of
+            case extract_fields(Fields, AttrList, Rules, Opts) of
                 {error, _} = Error ->
                     Error;
                 Values ->
@@ -59,14 +59,14 @@ decode1(AttrList, Opts, RecordName) ->
             end
     end.
 
-extract_fields([], _, _) ->
+extract_fields([], _, _, _) ->
     [];
-extract_fields([Field | F], AttrList, Opts) ->
+extract_fields([Field | F], AttrList, Rules, Opts) ->
     case ejson_util:get_field_name(Field) of
         undefined ->
             %% The skip rule: we haven't included that field in json,
             %% so we cannot extract any value for it.
-            [undefined | extract_fields(F, AttrList, Opts)];
+            [undefined | extract_fields(F, AttrList, Rules, Opts)];
         BareField ->
             Bf = if is_atom(BareField) ->
                         atom_to_binary(BareField, utf8);
@@ -80,17 +80,17 @@ extract_fields([Field | F], AttrList, Opts) ->
                         false ->
                             {error, {no_value_for, Field}};
                         {_, DefVal} ->
-                            [DefVal | extract_fields(F, AttrList, Opts)]
+                            [DefVal | extract_fields(F, AttrList, Rules, Opts)]
                     end;
                 {_, Value} ->
                     %% Extract value based on Field rule
-                    case extract_value(Field, Value, Opts) of
+                    case extract_value(Field, Value, Rules, Opts) of
                         {error, _} = Error ->
                             Error;
                         {ok, Extracted} ->
                             case maybe_post_process(Field, Extracted) of
                                 {ok, NewVal} ->
-                                    [NewVal | extract_fields(F, AttrList, Opts)];
+                                    [NewVal | extract_fields(F, AttrList, Rules, Opts)];
                                 {error, _} = Error2 ->
                                     Error2
                             end
@@ -98,7 +98,7 @@ extract_fields([Field | F], AttrList, Opts) ->
             end
     end.
 
-extract_value(Rule, Value, Opts) ->
+extract_value(Rule, Value, Rules, Opts) ->
     case Rule of
         {atom, _} ->
             extract_atom(Value);
@@ -121,13 +121,13 @@ extract_value(Rule, Value, Opts) ->
         {string, _, _} ->
             extract_string(Value);
         {record, _} ->
-            extract_record(Value, [], Opts);
+            extract_record(Value, [], Rules, Opts);
         {record, _, FieldOpts} ->
-            extract_record(Value, FieldOpts, Opts);
+            extract_record(Value, FieldOpts, Rules, Opts);
         {list, _} ->
-            extract_list(Value, [], Opts);
+            extract_list(Value, [], Rules, Opts);
         {list, _, FieldOpts} ->
-            extract_list(Value, FieldOpts, Opts);
+            extract_list(Value, FieldOpts, Rules, Opts);
         {generic, _Name, _FieldOpts} ->
             %% Let the post processor function makes the conversion
             {ok, Value};
@@ -160,25 +160,25 @@ extract_string(null) ->
 extract_string(Value) ->
     {ok, unicode:characters_to_list(Value, utf8)}.
 
-extract_record(null, FieldOpts, Opts) ->
+extract_record(null, FieldOpts, Rules, Opts) ->
     case proplists:get_value(default, FieldOpts) of
         undefined ->
             {ok, undefined};
         Default ->
-            extract_record(Default, FieldOpts, Opts)
+            extract_record(Default, FieldOpts, Rules, Opts)
     end;
-extract_record(Value, FieldOpts, Opts) ->
+extract_record(Value, FieldOpts, Rules, Opts) ->
     case proplists:get_value(type, FieldOpts) of
         undefined ->
             %% TODO error handling
-            {ok, decode1(Value, Opts)};
+            {ok, decode1(Value, Rules, Opts)};
         Type ->
-            {ok, decode1(Value, Opts, Type)}
+            {ok, decode1(Value, Type, Rules, Opts)}
     end.
 
-extract_list(null, _FieldOpts, _Opts) ->
+extract_list(null, _FieldOpts, _Rules, _Opts) ->
     {ok, undefined};
-extract_list(Value, FieldOpts, Opts) ->
+extract_list(Value, FieldOpts, Rules, Opts) ->
     case proplists:get_value(type, FieldOpts) of
         undefined ->
             %% No target type for list element, it can be an attrlist
@@ -189,7 +189,7 @@ extract_list(Value, FieldOpts, Opts) ->
                           undefined ->
                               {error, no_record_type, V};
                           Type ->
-                              decode1(V, Opts, Type)
+                              decode1(V, Type, Rules, Opts)
                       end;
                  (V) ->
                       V
@@ -197,7 +197,7 @@ extract_list(Value, FieldOpts, Opts) ->
             {ok, L};
         Type ->
             %% TODO error handling
-            {ok, [decode1(V, Opts, Type) || V <- Value]}
+            {ok, [decode1(V, Type, Rules, Opts) || V <- Value]}
     end.
 
 maybe_post_process({const, _Name, _Const}, Value) ->

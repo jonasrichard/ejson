@@ -31,6 +31,7 @@ default_real_test_() ->
                   Dec).
 
 default_field_test_() ->
+%    dbg:tracer(), dbg:tpl(ejson_encode, []), dbg:p(all, c),
     B = {book, "Treasure Island", [{person, "Robert Louis Stevenson"}], 1911},
     {ok, J} = ejson:to_jsx_modules(B, [?MODULE]),
     ?debugVal(J),

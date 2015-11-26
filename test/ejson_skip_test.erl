@@ -5,10 +5,10 @@
 -include_lib("eunit/include/eunit.hrl").
 
 skip_test() ->
-    Opts = [{request, skip, {string, "path"}, skip, {string, "method"}}],
+    Rules = [{request, skip, {string, "path"}, skip, {string, "method"}}],
 
     {ok, J} = ejson_encode:encode({request, "Socket info", "/index.html",
-                                   self(), "GET"}, Opts),
+                                   self(), "GET"}, Rules, []),
 
     ?assertEqual(<<"/index.html">>, json_prop(J, "path")),
     ?assertEqual(<<"GET">>, json_prop(J, "method")),

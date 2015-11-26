@@ -11,11 +11,11 @@ no_record_test_() ->
 
 duplicate_record_test_() ->
     ?_assertEqual({error, {duplicate_records, [a]}},
-                  ejson_encode:encode(1, [{a, b}, {a, {atom, c}}, {a, d}])).
+                  ejson_encode:encode(1, [{a, b}, {a, {atom, c}}, {a, d}], [])).
 
 duplicate_field_test_() ->
     F = fun(Opt) ->
-            Result = ejson_encode:encode(1, Opt),
+            Result = ejson_encode:encode(1, Opt, []),
             io:format("~p~n", [Result]),
             {error, {duplicate_fields, [<<"a">>]}} =:= Result
         end,
@@ -27,8 +27,8 @@ duplicate_field_test_() ->
     ].
 
 error_conflict_test_() ->
-    Opts = [{message, {string, error, [{default, "No errors"}]}}],
+    Rules = [{message, {string, error, [{default, "No errors"}]}}],
     Record = {message, "Syntax error"},
-    {ok, E} = ejson_encode:encode(Record, Opts),
-    {ok, D} = ejson_decode:decode(E, Opts, message),
+    {ok, E} = ejson_encode:encode(Record, Rules, []),
+    {ok, D} = ejson_decode:decode(E, message, Rules, []),
     ?_assertEqual(Record, D).
