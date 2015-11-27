@@ -60,6 +60,8 @@ get_fields(RecordName, Opts) ->
 
 get_field_name(skip) ->
     undefined;
+get_field_name({skip, _FieldOpts}) ->
+    undefined;
 get_field_name({Type, Field}) when Type =:= atom orelse
                                    Type =:= binary orelse
                                    Type =:= boolean orelse

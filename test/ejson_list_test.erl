@@ -12,7 +12,7 @@ list_test() ->
     Book2 = {book, "TDD - the easy way", 760},
     Person = {person, "Sam", [Book1, Book2]},
 
-    {ok, J} = ejson_encode:encode(Person, Options),
+    {ok, J} = ejson_encode:encode(Person, Options, []),
 
     ?assertEqual(<<"Sam">>, json_prop(J, "name")),
 
@@ -36,7 +36,7 @@ mixed_list_test() ->
                        {rect, 2, 3},
                        {circle, 5}]},
 
-    {ok, J} = ejson_encode:encode(Shapes, Options),
+    {ok, J} = ejson_encode:encode(Shapes, Options, []),
 
     ShapeList = json_prop(J, "shapes"),
     ?assertEqual(4, length(ShapeList)),
@@ -48,5 +48,5 @@ mixed_list_test() ->
     ?assertEqual(3, json_prop(R1, "b")),
     ?assertEqual(5, json_prop(C1, "r")),
 
-    {ok, D} = ejson_decode:decode(J, Options, shapes),
+    {ok, D} = ejson_decode:decode(J, shapes, Options, []),
     ?assertEqual(Shapes, D).

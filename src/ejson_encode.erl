@@ -20,15 +20,16 @@
 %%%-----------------------------------------------------------------------------
 -module(ejson_encode).
 
--export([encode/2]).
+-export([encode/3]).
 
--spec encode(term(), list()) -> {ok, jsx:json_term()} |
-                                {error, {duplicate_records, list(atom())}} |
-                                {error, {duplicate_fields, list(binary())}}. 
-encode(Value, Opts) ->
-    case validate_rules(Opts) of
+-spec encode(term(), list(), list()) ->
+    {ok, jsx:json_term()} |
+    {error, {duplicate_records, list(atom())}} |
+    {error, {duplicate_fields, list(binary())}}.
+encode(Value, Rules, Opts) ->
+    case validate_rules(Rules) of
         ok ->
-            case encode1(Value, Opts) of
+            case encode1(Value, Rules, Opts) of
                 {error, _} = Error ->
                     Error;
                 Result ->
@@ -39,77 +40,75 @@ encode(Value, Opts) ->
     end.
 
 %% Convert a record
-encode1(Tuple, Opts) when is_tuple(Tuple) andalso is_atom(element(1, Tuple)) ->
+encode1(Tuple, Rules, Opts) when is_tuple(Tuple) andalso
+                                 is_atom(element(1, Tuple)) ->
     [RecordName | Values] = tuple_to_list(Tuple),
     %% Get field rules
-    case ejson_util:get_fields(RecordName, Opts) of
+    case ejson_util:get_fields(RecordName, Rules) of
         {error, _} = Error ->
             Error;
         Fields ->
             %% Convert each values
-            case convert(ejson_util:zip(Fields, Values), Tuple, Opts, []) of
+            FV = ejson_util:zip(Fields, Values),
+            case convert(FV, Tuple, Rules, Opts, []) of
                 {error, _} = Error ->
                     Error;
                 AttrList ->
-                    lists:reverse(AttrList)
+                    %% Put __rec type information if record type is
+                    %% in the {type, Records} lists in the Opts
+                    case is_typed_record(RecordName, Opts) of
+                        true ->
+                            AL = add_rec_type(RecordName, AttrList),
+                            lists:reverse(AL);
+                        false ->
+                            lists:reverse(AttrList)
+                    end
             end
     end;
-encode1(Value, Opts) when is_list(Value) ->
-    [encode1(Val, Opts) || Val <- Value];
-encode1(Value, _Opts) when is_number(Value) orelse is_boolean(Value) ->
+encode1(Value, Rules, Opts) when is_list(Value) ->
+    [encode1(Val, Rules, Opts) || Val <- Value];
+encode1(Value, _Rules, _Opts) when is_number(Value) orelse is_boolean(Value) ->
     Value;
-encode1(undefined, _Opts) ->
+encode1(undefined, _Rules, _Opts) ->
     null.
 
-validate_rules(Opts) ->
-    RecordNames = [element(1, Opt) || Opt <- Opts],
-    case lists:sort(RecordNames) -- lists:usort(RecordNames) of
-        [] ->
-            case check_duplicate_fields(Opts) of
-                [] ->
-                    ok;
-                Fields ->
-                    {error, {duplicate_fields, Fields}}
-            end;
-        Records ->
-            {error, {duplicate_records, lists:usort(Records)}}
-    end.
-
-convert([], _Tuple, _Opts, Result) ->
+convert([], _Tuple, _Rules, _Opts, Result) ->
     Result;
-convert([{Name, Value} | T], Tuple, Opts, Result) ->
+convert([{Name, Value} | T], Tuple, Rules, Opts, Result) ->
     case maybe_pre_process(Name, Tuple, Value) of
         {ok, PreProcessed} ->
-            case maybe_apply_rule(Name, PreProcessed, Opts) of
+            case maybe_apply_rule(Name, PreProcessed, Rules, Opts) of
                 undefined ->
-                    convert(T, Tuple, Opts, Result);
+                    convert(T, Tuple, Rules, Opts, Result);
                 {error, _} = Error ->
                     Error;
                 {ok, {NewName, NewValue}} when is_atom(NewName) ->
-                    convert(T, Tuple, Opts, [{atom_to_binary(NewName, utf8),
-                                              NewValue} | Result]);
+                    NewPair = {atom_to_binary(NewName, utf8), NewValue},
+                    convert(T, Tuple, Rules, Opts, [NewPair | Result]);
                 {ok, {NewName, NewValue}} ->
-                    convert(T, Tuple, Opts, [{list_to_binary(NewName), NewValue} |
-                                             Result])
+                    NewPair = {list_to_binary(NewName), NewValue},
+                    convert(T, Tuple, Rules, Opts, [NewPair | Result])
             end;
         {error, _} = Error2 ->
             Error2
     end.
 
 %% Generate jsx attribute from ejson field
-maybe_apply_rule({_, _, FieldOpts} = Name, undefined = Value, Opts) ->
+maybe_apply_rule({_, _, FieldOpts} = Name, undefined = Value, Rules, Opts) ->
     case lists:keyfind(default, 1, FieldOpts) of
         {_, undefined} ->
             undefined;
         _ ->
-            apply_rule(Name, Value, Opts)
+            apply_rule(Name, Value, Rules, Opts)
     end;
-maybe_apply_rule(Name, Value, Opts) ->
-    apply_rule(Name, Value, Opts).
+maybe_apply_rule(Name, Value, Rules, Opts) ->
+    apply_rule(Name, Value, Rules, Opts).
 
-apply_rule(Name, Value, Opts) ->
+apply_rule(Name, Value, Rules, Opts) ->
     case Name of
         skip ->
+            undefined;
+        {skip, _FieldOpts} ->
             undefined;
         {number, AttrName} ->
             number_rule(AttrName, Value);
@@ -132,18 +131,18 @@ apply_rule(Name, Value, Opts) ->
         {string, AttrName, _FieldOpts} ->
             string_rule(AttrName, Value);
         {record, AttrName} ->
-            record_rule(AttrName, Value, [], Opts);
+            record_rule(AttrName, Value, [], Rules, Opts);
         {record, AttrName, FieldOpts} ->
-            record_rule(AttrName, Value, FieldOpts, Opts);
+            record_rule(AttrName, Value, FieldOpts, Rules, Opts);
         {list, AttrName} ->
-            mixed_list_rule(AttrName, Value, Opts);
+            mixed_list_rule(AttrName, Value, Rules, Opts);
         {list, AttrName, _FieldOpts} ->
-            list_rule(AttrName, Value, Opts);
+            list_rule(AttrName, Value, Rules, Opts);
         {generic, AttrName, _FieldOpts} ->
             %% Generic encoding is handled in pre_process phase
             {ok, {AttrName, Value}};
         {const, AttrName, Const} ->
-            {ok, {AttrName, encode1(Const, Opts)}};
+            {ok, {AttrName, encode1(Const, Rules, Opts)}};
         AttrName ->
             {error, {invalid_field_rule, AttrName, Name}}
     end.
@@ -183,31 +182,35 @@ string_rule(AttrName, Value) when is_list(Value) ->
 string_rule(AttrName, Value) ->
     {error, {string_value_expected, AttrName, Value}}.
 
-record_rule(AttrName, undefined, _FieldOpts, _Opts) ->
+record_rule(AttrName, undefined, _FieldOpts, _Rules, _Opts) ->
     {ok, {AttrName, null}};
-record_rule(AttrName, Value, FieldOpts, Opts) when is_tuple(Value) ->
-    case lists:keyfind(type, 1, FieldOpts) of
-        false ->
-            %% If record type is not specified add __rec meta data
-            R = encode1(Value, Opts),
-            {ok, {AttrName, add_rec_type(element(1, Value), R)}};
-        _ ->
-            {ok, {AttrName, encode1(Value, Opts)}}
+record_rule(AttrName, Value, FieldOpts, Rules, Opts) when is_tuple(Value) ->
+    case encode1(Value, Rules, Opts) of
+        {error, _} = E ->
+            E;
+        AttrList ->
+            case lists:keyfind(type, 1, FieldOpts) of
+                false ->
+                    %% If record type is not specified add __rec meta data
+                    {ok, {AttrName, add_rec_type(element(1, Value), AttrList)}};
+                _ ->
+                    {ok, {AttrName, AttrList}}
+            end
     end;
-record_rule(AttrName, Value, _FieldOpts, _Opts) ->
+record_rule(AttrName, Value, _FieldOpts, _Rules, _Opts) ->
     {error, {record_value_expected, AttrName, Value}}.
 
-list_rule(AttrName, undefined, _Opts) ->
+list_rule(AttrName, undefined, _Rules, _Opts) ->
     {ok, {AttrName, null}};
-list_rule(AttrName, Value, Opts) when is_list(Value) ->
-    List = [encode1(V, Opts) || V <- Value],
+list_rule(AttrName, Value, Rules, Opts) when is_list(Value) ->
+    List = [encode1(V, Rules, Opts) || V <- Value],
     {ok, {AttrName, List}};
-list_rule(AttrName, Value, _Opts) ->
+list_rule(AttrName, Value, _Rules, _Opts) ->
     {error, {list_value_expected, AttrName, Value}}.
 
-mixed_list_rule(AttrName, undefined, _Opts) ->
+mixed_list_rule(AttrName, undefined, _Rules, _Opts) ->
     {ok, {AttrName, null}};
-mixed_list_rule(AttrName, Value, Opts) when is_list(Value) ->
+mixed_list_rule(AttrName, Value, Rules, Opts) when is_list(Value) ->
     try lists:map(
           fun(N) when is_number(N) ->
                   N;
@@ -215,7 +218,7 @@ mixed_list_rule(AttrName, Value, Opts) when is_list(Value) ->
                   B;
              (T) when is_tuple(T) ->
                   Rec = element(1, T),
-                  case encode1(T, Opts) of
+                  case encode1(T, Rules, Opts) of
                       {error, R} ->
                           throw(R);
                       AttrList ->
@@ -230,7 +233,7 @@ mixed_list_rule(AttrName, Value, Opts) when is_list(Value) ->
         E:R ->
             {error, AttrName, E, R}
     end;
-mixed_list_rule(AttrName, Value, _Opts) ->
+mixed_list_rule(AttrName, Value, _Rules, _Opts) ->
     {error, {list_value_expected, AttrName, Value}}.
 
 maybe_pre_process({const, _Name, _Const}, _Tuple, Value) ->
@@ -258,7 +261,34 @@ maybe_pre_process(_Rule, _Tuple, Value) ->
     {ok, Value}.
 
 add_rec_type(Type, List) ->
-    [{<<"__rec">>, atom_to_binary(Type, utf8)} | List].
+    case lists:keyfind(<<"__rec">>, 1, List) of
+        false ->
+            [{<<"__rec">>, atom_to_binary(Type, utf8)} | List];
+        _ ->
+            List
+    end.
+
+is_typed_record(RecordName, Opts) ->
+    case lists:keyfind(type_field, 1, Opts) of
+        false ->
+            false;
+        {_, Types} ->
+            lists:member(RecordName, Types)
+    end.
+
+validate_rules(Rules) ->
+    RecordNames = [element(1, Rule) || Rule <- Rules],
+    case lists:sort(RecordNames) -- lists:usort(RecordNames) of
+        [] ->
+            case check_duplicate_fields(Rules) of
+                [] ->
+                    ok;
+                Fields ->
+                    {error, {duplicate_fields, Fields}}
+            end;
+        Records ->
+            {error, {duplicate_records, lists:usort(Records)}}
+    end.
 
 %% Check duplicate fields in record definition. It gives false if each field is
 %% unique, otherwise it gives the duplicate field names.

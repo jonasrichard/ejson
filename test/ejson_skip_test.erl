@@ -5,11 +5,18 @@
 -include_lib("eunit/include/eunit.hrl").
 
 skip_test() ->
-    Opts = [{request, skip, {string, "path"}, skip, {string, "method"}}],
+    Rules = [{request, {skip, [{default, "INFO"}]},
+                       {string, "path"},
+                       skip,
+                       {string, "method"}}],
+    Record = {request, "Socket info", "/index.html", self(), "GET"},
 
-    {ok, J} = ejson_encode:encode({request, "Socket info", "/index.html",
-                                   self(), "GET"}, Opts),
+    {ok, Json} = ejson:to_json(Record, Rules, []),
 
-    ?assertEqual(<<"/index.html">>, json_prop(J, "path")),
-    ?assertEqual(<<"GET">>, json_prop(J, "method")),
-    ?assertEqual(2, length(J)).
+    Decoded = jsx:decode(Json),
+    ?assertEqual(<<"/index.html">>, json_prop(Decoded, "path")),
+    ?assertEqual(<<"GET">>, json_prop(Decoded, "method")),
+    ?assertEqual(2, length(Decoded)),
+    
+    {ok, D} = ejson:from_json(Json, request, Rules, []),
+    ?assertMatch({request, "INFO", "/index.html", undefined, "GET"}, D).

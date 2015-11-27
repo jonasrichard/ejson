@@ -24,13 +24,16 @@
 -module(ejson).
 
 -export([
-        to_json/2,
-        to_jsx/2,
+        to_json/3,
+        to_jsx/3,
         to_json_modules/2,
         to_jsx_modules/2,
         from_json/3,
+        from_json/4,
+        from_json_modules/2,
         from_json_modules/3,
-        json_props/1
+        json_rules/1,
+        json_opts/1
     ]).
 
 %%%----------------------------------------------------------------------------
@@ -58,42 +61,66 @@
         {error, {duplicate_records, term()}} |
         {error, {duplicate_fields, term()}}.
 to_json_modules(Term, ModuleList) ->
-    Opts = json_props(ModuleList),
-    to_json(Term, Opts).
+    Rules = json_rules(ModuleList),
+    Opts = json_opts(ModuleList),
+    to_json(Term, Rules, Opts).
 
 to_jsx_modules(Term, ModuleList) when is_list(ModuleList) ->
-    Opts = json_props(ModuleList),
-    to_jsx(Term, Opts).
+    Rules = json_rules(ModuleList),
+    Opts = json_opts(ModuleList),
+    to_jsx(Term, Rules, Opts).
 
--spec to_json(term(), rule()) -> {ok, jsx:jsx_term()} | {error, term()}.
-to_json(Term, Opts) ->
-    case to_jsx(Term, Opts) of
+-spec to_json(term(), rule(), list()) -> {ok, jsx:jsx_term()} | {error, term()}.
+to_json(Term, Rules, Opts) ->
+    case to_jsx(Term, Rules, Opts) of
         {ok, Result} ->
             {ok, jsx:encode(Result)};
         {error, _} = Error ->
             Error
     end.
 
-to_jsx(Term, Opts) ->
-    ejson_encode:encode(Term, Opts).
+to_jsx(Term, Rules, Opts) ->
+    ejson_encode:encode(Term, Rules, Opts).
+
+from_json_modules(Binary, ModuleList) ->
+    Rules = json_rules(ModuleList),
+    Opts = json_opts(ModuleList),
+    from_json(Binary, Rules, Opts).
 
 from_json_modules(Binary, ModuleList, Record) ->
-    Opts = json_props(ModuleList),
+    Opts = json_rules(ModuleList),
     from_json(Binary, Opts, Record).
 
-from_json(Binary, Record, Opts) ->
+from_json(Binary, Rules, Opts) ->
     Decoded = jsx:decode(Binary),
-    ejson_decode:decode(Decoded, Opts, Record).
+    case lists:keyfind(<<"__rec">>, 1, Decoded) of
+        {<<"__rec">>, TypeBin} ->
+            Record = binary_to_atom(TypeBin, utf8),
+            ejson_decode:decode(Decoded, Record, Rules, Opts);
+        false ->
+            {error, no_root_record_type}
+    end.
+
+from_json(Binary, Record, Rules, Opts) ->
+    Decoded = jsx:decode(Binary),
+    ejson_decode:decode(Decoded, Record, Rules, Opts).
 
 %%%----------------------------------------------------------------------------
 %%% @doc Get json attributes from the specified modules
 %%% @end
 %%%----------------------------------------------------------------------------
-json_props(ModuleList) ->
+json_rules(ModuleList) ->
     lists:foldl(
         fun(Module, Acc) ->
-            Attrs = proplists:get_value(attributes, Module:module_info()),
-            Opts = lists:flatten([V || {json, V} <- Attrs]),
-
-            Opts ++ Acc
+            extract_attrs(Module, json) ++ Acc
         end, [], ModuleList).
+
+json_opts(ModuleList) ->
+    lists:foldl(
+      fun(Module, Acc) ->
+          extract_attrs(Module, json_opt) ++ Acc
+      end, [], ModuleList).
+
+extract_attrs(Module, Attr) ->
+    [V || {A, [V]} <- proplists:get_value(attributes, Module:module_info()),
+          A =:= Attr].

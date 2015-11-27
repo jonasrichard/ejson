@@ -5,6 +5,6 @@
 -json({rectangle, "aSide", b_side}).
 
 json_props_test_() ->
-    Opts = ejson:json_props([?MODULE]),
+    Opts = ejson:json_rules([?MODULE]),
     [?_assert(1 =:= length(Opts)),
      ?_assert({rectangle, "aSide", b_side} =:= hd(Opts))].
