@@ -13,6 +13,10 @@ TEST_ERLC_OPTS 		= -pz $(CURDIR)/test
 all:: deps app
 	$(gen_verbose) echo "Building ejson" 
 
+# For Travis CI
+test: deps app tests
+	$(verbose) echo -n
+
 .PHONY: ejson-transform
 ejson-transform:
 	$(gen_verbose) erlc -v $(TEST_ERLC_OPTS) -I include/ -o $(TEST_DIR) \
