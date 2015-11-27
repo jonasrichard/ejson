@@ -7,7 +7,7 @@
          start/0, sum_hours/1
         ]).
 
--json_opt(no_meta_type).
+-json_opt({type_field, [person]}).
 -json({person, {string, "name"}, {list, "subjects"}, "creditPoints"}).
 -json({subject,
        {string, "name"}, 

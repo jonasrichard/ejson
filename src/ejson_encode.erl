@@ -54,7 +54,15 @@ encode1(Tuple, Rules, Opts) when is_tuple(Tuple) andalso
                 {error, _} = Error ->
                     Error;
                 AttrList ->
-                    lists:reverse(AttrList)
+                    %% Put __rec type information if record type is
+                    %% in the {type, Records} lists in the Opts
+                    case is_typed_record(RecordName, Opts) of
+                        true ->
+                            AL = add_rec_type(RecordName, AttrList),
+                            lists:reverse(AL);
+                        false ->
+                            lists:reverse(AttrList)
+                    end
             end
     end;
 encode1(Value, Rules, Opts) when is_list(Value) ->
@@ -247,7 +255,20 @@ maybe_pre_process(_Rule, _Tuple, Value) ->
     {ok, Value}.
 
 add_rec_type(Type, List) ->
-    [{<<"__rec">>, atom_to_binary(Type, utf8)} | List].
+    case lists:keyfind(<<"__rec">>, 1, List) of
+        false ->
+            [{<<"__rec">>, atom_to_binary(Type, utf8)} | List];
+        _ ->
+            List
+    end.
+
+is_typed_record(RecordName, Opts) ->
+    case lists:keyfind(type_field, 1, Opts) of
+        false ->
+            false;
+        {_, Types} ->
+            lists:member(RecordName, Types)
+    end.
 
 validate_rules(Rules) ->
     RecordNames = [element(1, Rule) || Rule <- Rules],
