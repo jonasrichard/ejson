@@ -1,5 +1,7 @@
 ## ejson
 
+[![Build Status](https://travis-ci.org/jonasrichard/ejson.svg?branch=master)](https://travis-ci.org/jonasrichard/ejson)
+
 JSON library for Erlang on top of `jsx`. It gives a declarative interface for `jsx` by which we need to specify conversion rules and `ejson` will convert tuples according to the rules.
 
 I made this library to make easy not just the encoding but rather the decoding of JSONs to Erlang records. I also put emphasis on property-based test the encoding/decoding pair, so all features work in both way.
@@ -23,7 +25,7 @@ In order for ejson to take effect the source files need to be compiled with `par
 -json({project, {string, "name"}, {number, "budget"},
                 {boolean, "isSuccessful"}]}).
 
-%% parse_transform generates to_json/1 and from_json/1 local functions
+%% parse_transform generates to_json/1 and from_json/{1,2} local functions
 
 start() ->
     Jim = #person{
@@ -92,7 +94,7 @@ Obviously not just numeric and boolean values can be in a record but records its
                {string, "lastName"}}).
 ```
 
-In the author field you can put an author record value, the converted will convert in as a nested JSON as you expect. Let us note that ejson doesn't know what type of record can be the value of the author field, so it will generate a type meta-data in the json object (`__rec`). If we don't want to generate that meta-data we need to specify the type of the record like: `{record, "author", [{type, address}]}`.
+In the author field you can put an author record value, the converted will convert in as a nested JSON as you expect. Let us note that ejson doesn't know what type of record can be the value of the author field, so it will generate a type meta-data in the json object (`__rec`). If we don't want to generate that meta-data we need to specify the type of the record like: `{record, "author", [{type, author}]}`.
 
 ```json
 {
@@ -226,6 +228,33 @@ When we don't want to (or we cannot) convert our tuples into a format which can 
 %% a list of binary name/value pairs, acceptable by jsx library. 
 ejson:to_json({invoice, get_invoice()}).
 ```
+
+#### Override type field generation
+
+Sometimes (especially in case of root records of a record hierarchy) it is comfortable if `ejson` generates `__rec` field to some records. If we want to store records in database we won't know which type of records we will read, so it is logical to generate the `__rec` field to some records. In this example we are storing books and CDs both having author. Author records don't necessary need `__rec` field, but books and CDs need to have.
+
+```erlang
+%% Generate __rec field for books and cds
+-json_otp({type_field, [book, cd]}).
+-json({book, {string, title}, {record, writer, [{type, author}]}}).
+-json({cd, {string, title}, {record, musician, [{type, author}]}}).
+-json({author, {string, name}}).
+
+store(Key, MediaItem) ->
+    Json = to_json(MediaItem),
+    db:store(Key, Json).
+
+fetch(Key) ->
+    {ok, Json} = db:get(Key),
+    %% Here we don't know the type of the item in Json
+    {ok, MediaItem} = from_json(Json).
+
+...
+    store(112, {book, "Cats everywhere", {author, "Joe Williams"}}),
+    Item = fetch(112)
+```
+
+So with the help of `-json_opt` we can refine the transformation, here we specified which records must generate `__rec` field whatever happens.
 
 ### Using without parse transform
 
