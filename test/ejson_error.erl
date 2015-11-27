@@ -32,3 +32,13 @@ error_conflict_test_() ->
     {ok, E} = ejson_encode:encode(Record, Rules, []),
     {ok, D} = ejson_decode:decode(E, message, Rules, []),
     ?_assertEqual(Record, D).
+
+embedded_record_field_error_test_() ->
+    Rules = [{book, {string, "title"}, {record, author}},
+             {author, {string, "name"}}],
+    
+    [?_assertMatch(
+        {error, {string_value_expected, "name", _}},
+        ejson_encode:encode({book, "The", {author, 12}}, Rules, [])
+       )
+    ].

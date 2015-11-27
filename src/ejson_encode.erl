@@ -183,13 +183,17 @@ string_rule(AttrName, Value) ->
 record_rule(AttrName, undefined, _FieldOpts, _Rules, _Opts) ->
     {ok, {AttrName, null}};
 record_rule(AttrName, Value, FieldOpts, Rules, Opts) when is_tuple(Value) ->
-    case lists:keyfind(type, 1, FieldOpts) of
-        false ->
-            %% If record type is not specified add __rec meta data
-            R = encode1(Value, Rules, Opts),
-            {ok, {AttrName, add_rec_type(element(1, Value), R)}};
-        _ ->
-            {ok, {AttrName, encode1(Value, Rules, Opts)}}
+    case encode1(Value, Rules, Opts) of
+        {error, _} = E ->
+            E;
+        AttrList ->
+            case lists:keyfind(type, 1, FieldOpts) of
+                false ->
+                    %% If record type is not specified add __rec meta data
+                    {ok, {AttrName, add_rec_type(element(1, Value), AttrList)}};
+                _ ->
+                    {ok, {AttrName, AttrList}}
+            end
     end;
 record_rule(AttrName, Value, _FieldOpts, _Rules, _Opts) ->
     {error, {record_value_expected, AttrName, Value}}.

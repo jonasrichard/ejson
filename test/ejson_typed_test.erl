@@ -28,7 +28,6 @@ deep_delete_rec([H | T]) ->
     [H | deep_delete_rec(T)].
 
 root_record_rec_test_() ->
-    dbg:tracer(), dbg:tpl(ejson_encode, []), dbg:p(all, c),
     Rules = [{book, {string, title}, {list, "authors", [{type, author}]}},
              {author, {string, name}}],
     Opts = [{type_field, [book]}],
