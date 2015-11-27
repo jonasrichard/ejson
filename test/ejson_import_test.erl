@@ -6,11 +6,13 @@
 
 -json_include([ejson_trans_test]).
 
+-err({testing}).
+
 -json({library, {string, name}, {list, books, [{type, book}]}}).
 
 %% TODO sometimes it fails, sometimes it doesn't
 %% It seems that sometimes the module isn't there after compilation
-include_test_x() ->
+include_test_() ->
     A1 = {author, "John", undefined, "Smith"},
     A2 = {author, "John", "Davison", "Rockefeller"},
     L = {library, "home",

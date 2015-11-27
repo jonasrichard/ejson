@@ -1,12 +1,11 @@
 -module(ejson_trans).
 
 -export([
-        parse_transform/2
+        parse_transform/2,
+        format_error/1
     ]).
 
 -define(D(Val), io:format("~s: ~p~n", [??Val, Val])).
--define(W(Msg, Args), io:fwrite(standard_error,
-                                "[ejson] " ++ Msg, Args)).
 
 parse_transform(AstIn, _Options) ->
     Out = walk(AstIn),
@@ -54,10 +53,10 @@ walk([{eof, LastLine} | T], A, R, O, _) ->
 walk([{attribute, _Line, json, RecordSpec} = Attr | T], A, R, O, L) ->
     %% handle -json attribute
     walk(T, [Attr | A], [RecordSpec | R], O, L);
-walk([{attribute, _Line, json_include, Modules} = Attr | T], A, R, O, L) ->
+walk([{attribute, Line, json_include, Modules} = Attr | T], A, R, O, L) ->
     %% handle -json_include by reading the records and opts from modules
-    Attrs = read_attributes(Modules),
-    Opts = read_opts(Modules),
+    Attrs = read_attributes(Line, Modules),
+    Opts = read_opts(Line, Modules),
     walk(T, [Attr | A], Attrs ++ R, Opts ++ O, L);
 walk([{attribute, _Line, json_opt, Opt} = Attr | T], A, R, O, L) ->
     %% handle -json_opt
@@ -65,30 +64,41 @@ walk([{attribute, _Line, json_opt, Opt} = Attr | T], A, R, O, L) ->
 walk([H | T], A, R, O, L) ->
     walk(T, [H | A], R, O, L).
 
-read_attributes([]) ->
+read_attributes(_Line, []) ->
     [];
-read_attributes([Module | Modules]) ->
-    ?W("Path ~p~n", [code:get_path()]),
+read_attributes(Line, [Module | Modules]) ->
     case code:load_file(Module) of
         {error, Reason} ->
-            ?W("Cannot load module ~p: ~p~n", [Module, Reason]),
-            [];
+            report_error(Module, Line, "[ejson] Cannot load module ~p (~p)",
+                         [Module, Reason]);
         {module, _} ->
             Js = ejson:json_rules([Module]),
-            Js ++ read_attributes(Modules)
+            Js ++ read_attributes(Line, Modules)
     end.
 
-read_opts([]) ->
+read_opts(_Line, []) ->
     [];
-read_opts([Module | Modules]) ->
+read_opts(Line, [Module | Modules]) ->
     case code:load_file(Module) of
         {error, Reason} ->
-            ?W("Cannot load module ~p: ~p~n", [Module, Reason]),
-            [];
+            report_error(Module, Line, "[ejson] Cannot load module ~p (~p)",
+                         [Module, Reason]);
         {module, _} ->
             Opts = ejson:json_opts([Module]),
-            Opts ++ read_opts(Modules)
+            Opts ++ read_opts(Line, Modules)
     end.
+
+report_error(Module, Pos, Msg) ->
+    File = atom_to_list(Module) ++ ".erl",
+    throw({error,
+           [{File, [{Pos, ejson_trans, Msg}]}],
+           []}).
+
+report_error(Module, Pos, Format, Args) ->
+    report_error(Module, Pos, io_lib:format(Format, Args)).
+
+format_error(Msg) ->
+    Msg.
 
 %% true if local function with arity defined
 is_fun_defined([], _FunName, _Arity) ->
