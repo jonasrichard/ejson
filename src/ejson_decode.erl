@@ -65,8 +65,14 @@ extract_fields([Field | F], AttrList, Rules, Opts) ->
     case ejson_util:get_field_name(Field) of
         undefined ->
             %% The skip rule: we haven't included that field in json,
-            %% so we cannot extract any value for it.
-            [undefined | extract_fields(F, AttrList, Rules, Opts)];
+            %% so we cannot extract any value for it. However, if we have
+            %% default value, let us specify it.
+            case default_value(Field) of
+                false ->
+                    [undefined | extract_fields(F, AttrList, Rules, Opts)];
+                {_, DefValue} ->
+                    [DefValue | extract_fields(F, AttrList, Rules, Opts)]
+            end;
         BareField ->
             Bf = if is_atom(BareField) ->
                         atom_to_binary(BareField, utf8);
@@ -232,6 +238,8 @@ get_rec_type(JsxList) ->
     end.
 
 %% Get the default value from a field rule
+default_value({skip, Opts}) ->
+    lists:keyfind(default, 1, Opts);
 default_value({Type, _, Opts}) when Type =:= atom orelse
                                     Type =:= binary orelse
                                     Type =:= boolean orelse

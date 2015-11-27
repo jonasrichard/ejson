@@ -108,6 +108,8 @@ apply_rule(Name, Value, Rules, Opts) ->
     case Name of
         skip ->
             undefined;
+        {skip, _FieldOpts} ->
+            undefined;
         {number, AttrName} ->
             number_rule(AttrName, Value);
         {number, AttrName, _FieldOpts} ->
