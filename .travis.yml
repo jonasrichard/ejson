@@ -2,7 +2,5 @@ language: erlang
 otp_release:
     - 18.1
 script:
-    make deps
-    make app
-    make tests
+    make deps app tests
 
