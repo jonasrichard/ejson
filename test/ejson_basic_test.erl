@@ -51,7 +51,7 @@ from_jsx(Attrs) ->
 
 generic_test_() ->
     Rules = [{item, {generic, count, [{pre_encode, {?MODULE, to_jsx}},
-                                     {post_decode, {?MODULE, from_jsx}}]}}],
+                                      {post_decode, {?MODULE, from_jsx}}]}}],
     Record = {item, {15, 2}},
     {ok, E} = ejson_encode:encode(Record, Rules, []),
     ?debugVal(E),
