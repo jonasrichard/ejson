@@ -144,7 +144,13 @@ extract_value(Rule, Value, Rules, Opts) ->
 extract_atom(null) ->
     {ok, undefined};
 extract_atom(Value) ->
-    {ok, binary_to_atom(Value, utf8)}.
+    try binary_to_atom(Value, utf8) of
+        Atom ->
+            {ok, Atom}
+    catch
+        error:badarg ->
+            {error, {illegal_characters_in_atom, Value}}
+    end.
 
 extract_binary(null) ->
     {ok, undefined};

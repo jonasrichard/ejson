@@ -34,7 +34,7 @@ dec_fun(Num) -> Num div 1000.
 
 pre_post_callback_test_() ->
     Rules = [{time, {number, "jsTime", [{pre_encode, {?MODULE, enc_fun}},
-                                       {post_decode, {?MODULE, dec_fun}}]}}],
+                                        {post_decode, {?MODULE, dec_fun}}]}}],
     Record = {time, 2300},
     {ok, E} = ejson_encode:encode(Record, Rules, []),
     ?debugVal(E),
@@ -51,7 +51,7 @@ from_jsx(Attrs) ->
 
 generic_test_() ->
     Rules = [{item, {generic, count, [{pre_encode, {?MODULE, to_jsx}},
-                                     {post_decode, {?MODULE, from_jsx}}]}}],
+                                      {post_decode, {?MODULE, from_jsx}}]}}],
     Record = {item, {15, 2}},
     {ok, E} = ejson_encode:encode(Record, Rules, []),
     ?debugVal(E),

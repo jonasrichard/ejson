@@ -18,29 +18,18 @@ walk(Ast) ->
     %% Collect ejson attributes
     {AstOut, Records, Opts, LastLine} = walk(Ast, [], [], [], 0),
 
-    ToJson = case is_fun_defined(AstOut, to_json, 1) of
-                 true ->
-                     [];
-                 false ->
-                     [gen_encode_fun(Records, Opts, EofLine)]
-             end,
-    FromJson1 = case is_fun_defined(AstOut, from_json, 1) of
-                    true ->
-                        [];
-                    false ->
-                        [gen_decode_fun1(Records, Opts, EofLine)]
-                end,
-    FromJson2 = case is_fun_defined(AstOut, from_json, 2) of
-                    true ->
-                        [];
-                    false ->
-                        [gen_decode_fun2(Records, Opts, EofLine)]
-                end,
+    %% Generate to_json/from_json functions
+    Funs = generate_funs(AstOut, Records, Opts, EofLine),
 
     %% Add function definition if they don't exist yes
-    R = lists:reverse([{eof, LastLine}] ++ ToJson ++
-                      FromJson1 ++ FromJson2 ++ AstOut),
-    R2 = add_compile_options(R),
+    R = lists:reverse([{eof, LastLine}] ++ Funs ++ AstOut),
+    R2 = case Funs of
+             [] ->
+                 %% If we don't have functions we shouldn't generate compile opts
+                 R;
+             _ ->
+                 add_compile_options(R)
+         end,
     %%?D(R2),
     R2.
 
@@ -99,6 +88,15 @@ report_error(Module, Pos, Format, Args) ->
 
 format_error(Msg) ->
     Msg.
+
+generate_funs(_Ast, [], _Opts, _EofLine) ->
+    [];
+generate_funs(Ast, Records, Opts, EofLine) ->
+    [Gen(Records, Opts, EofLine)
+     || {Gen, Fun, Arity} <- [{fun gen_encode_fun/3, to_json, 1},
+                              {fun gen_decode_fun1/3, from_json, 1},
+                              {fun gen_decode_fun2/3, from_json, 2}],
+        not is_fun_defined(Ast, Fun, Arity)].
 
 %% true if local function with arity defined
 is_fun_defined([], _FunName, _Arity) ->
