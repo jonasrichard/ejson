@@ -42,13 +42,19 @@
 
 -type field_name()  :: atom() | string().
 
--type field_opt()   :: {default, term()} | {type, atom()}.
+-type field_def()   :: {default, term()}.
+%-type field_enc()   :: {pre_encode, fun((term(), term()) -> term())} |
+%                       {post_decode, fun((term()) -> term())}.
+-type field_opt()   :: field_def() | {type, atom()} | recursive.
 -type field_opts()  :: list(field_opt()).
 
--type type_sel()    :: atom | binary | list | record | string.
+-type type_sel()    :: atom | binary | boolean | list | number | record | string.
 -type basic_rule()  :: field_name() |
                        {type_sel(), field_name()} |
-                       {type_sel(), field_name(), field_opts()}.
+                       {type_sel(), field_name(), field_opts()} |
+                       {skip, list(field_def())} |
+                       {const, field_name(), term()} |
+                       {generic, field_name(), field_opts()}.
 -type rule()        :: list(basic_rule()).
 
 

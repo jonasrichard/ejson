@@ -78,7 +78,8 @@ get_field_name({Type, Field, _FieldOpts}) when Type =:= atom orelse
                                                Type =:= list orelse
                                                Type =:= number orelse
                                                Type =:= record orelse
-                                               Type =:= string ->
+                                               Type =:= string orelse
+                                               Type =:= virtual ->
     Field;
 get_field_name({generic, Field, _FieldOpts}) ->
     Field;

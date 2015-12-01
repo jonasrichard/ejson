@@ -283,6 +283,38 @@ When we have different set of conversion rules in different files, we can inlcud
 
 Those files have to be compiled first (at least before the file including them).
 
+#### Virtual fields
+
+It is handy when we need to add fields to the json but those fields don't have pair in the record (we want to generate additional/extra fields beside the record fields). It is also useful when we want to control the decoding process (modify the decoded record depending on fields in json).
+
+In this example we want to serialize a session record which has an id and server name. We have an ets table which stores the pid and node of the session. We are sending the server name, but if it is missing from the incoming json we can repair the session by looking up the ets table.
+
+```erlang
+-json({session, {binary, id}, {atom, server},
+                {virtual, ets_id, [{pre_encode, {?MODULE, id_to_jsx}},
+                                   {post_decode, {?MODULE, jsx_to_id}}]}}).
+
+%% We expect to get the record (without the virtual fields since they don't
+%% belong to the record).
+id_to_jsx({session, _Id, _Server}) ->
+    %% Lookup the session key by pid
+    [Server] = ets:lookup(session, Id),
+    %% we can provide jsx primitive types here
+    null.
+
+%% Here we reconstruct the server if it is not there
+jsx_to_id([Id, undefined], _EtsId) ->
+    [Server] = ets:lookup(session, Id),
+    %% Pass the internal record back
+    [Id, Server];
+jsx_to_id([Id, Server] = Record, _EtsId) ->
+    Record.
+```
+
+This is very powerful feature and use only if you understand `ejson` very well. The `pre_encode` function gets the record what we want to convert and it provides a `jsx:term()`. The `post_decode` function gets called during decode phase and it gets the record field values (as a list) which is constructed so far.
+
+If we have a 5-field record and we insert the virtual rule after the 3rd field, the `post_decode` function will get a three-long list (!). Because at that phase of the decoding we only have only 3 fields decoded.
+
 ### Using without parse transform
 
 If one doesn't want to use parse transform for any reason, it is still possible to use ejson but you need to pass the module atom list in order that ejson can detect the `-json` attributes.

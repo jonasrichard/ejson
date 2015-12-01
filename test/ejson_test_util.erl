@@ -10,6 +10,10 @@ json_prop(Json, PropName) ->
             Value
     end.
 
+%% Simplifies accessing data in jsx terms
+%%   - name             the value of the name field
+%%   - name.first       the value of the first field in the name field
+%%   - items.2.name     name of the 2nd item
 json_path(Json, Path) ->
     P = string:tokens(Path, "."),
     lists:foldl(

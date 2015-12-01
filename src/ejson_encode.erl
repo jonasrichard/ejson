@@ -138,8 +138,10 @@ apply_rule(Name, Value, Rules, Opts) ->
             mixed_list_rule(AttrName, Value, Rules, Opts);
         {list, AttrName, _FieldOpts} ->
             list_rule(AttrName, Value, Rules, Opts);
-        {generic, AttrName, _FieldOpts} ->
-            %% Generic encoding is handled in pre_process phase
+        {generic, AttrName, FieldOpts} ->
+            generic_rule(AttrName, Value, FieldOpts, Rules, Opts);
+        {virtual, AttrName, _FieldOpts} ->
+            %% The pre_encode already ran
             {ok, {AttrName, Value}};
         {const, AttrName, Const} ->
             {ok, {AttrName, encode1(Const, Rules, Opts)}};
@@ -200,6 +202,30 @@ record_rule(AttrName, Value, FieldOpts, Rules, Opts) when is_tuple(Value) ->
 record_rule(AttrName, Value, _FieldOpts, _Rules, _Opts) ->
     {error, {record_value_expected, AttrName, Value}}.
 
+generic_rule(AttrName, undefined, _FieldOpts, _Rules, _Opts) ->
+    {ok, {AttrName, null}};
+generic_rule(AttrName, Value, FieldOpts, Rules, Opts) ->
+    case lists:member(recursive, FieldOpts) of
+        false ->
+            %% If there is no recursive rule Value is expected to be
+            %% a jsx:term()
+            {ok, {AttrName, Value}};
+        true ->
+            %% Apply the rules recursively
+            case encode1(Value, Rules, Opts) of
+                {error, _} = E ->
+                    E;
+                AttrList ->
+                    case lists:keyfind(type, 1, FieldOpts) of
+                        false ->
+                            {error, {type_required, AttrName, FieldOpts}};
+                        {type, _Type} ->
+                            %% Check if {<<"__rec", Type} there 
+                            {ok, {AttrName, AttrList}}
+                    end
+            end
+    end.
+
 list_rule(AttrName, undefined, _Rules, _Opts) ->
     {ok, {AttrName, null}};
 list_rule(AttrName, Value, Rules, Opts) when is_list(Value) ->
@@ -238,6 +264,14 @@ mixed_list_rule(AttrName, Value, _Rules, _Opts) ->
 
 maybe_pre_process({const, _Name, _Const}, _Tuple, Value) ->
     {ok, Value};
+maybe_pre_process({virtual, Name, FieldOpts}, Tuple, _Value) ->
+    case lists:keyfind(pre_encode, 1, FieldOpts) of
+        false ->
+            {error, {no_pre_encode, Name}};
+        {pre_encode, Fun} ->
+            %% In case of virtual only the tuple is passed
+            safe_call_fun(Name, [Tuple], Fun)
+    end;
 maybe_pre_process({Type, Name, FieldOpts}, Tuple, Value) ->
     case lists:keyfind(pre_encode, 1, FieldOpts) of
         false ->
@@ -248,17 +282,20 @@ maybe_pre_process({Type, Name, FieldOpts}, Tuple, Value) ->
                 _ ->
                     {ok, Value}
             end;
-        {pre_encode, {M, F}} ->
-            try erlang:apply(M, F, [Tuple, Value]) of
-                Val ->
-                    {ok, Val}
-            catch
-                E:R ->
-                    {error, {Name, E, R}}
-            end
+        {pre_encode, Fun} ->
+            safe_call_fun(Name, [Tuple, Value], Fun)
     end;
 maybe_pre_process(_Rule, _Tuple, Value) ->
     {ok, Value}.
+
+safe_call_fun(Name, Args, {M, F}) ->
+    try erlang:apply(M, F, Args) of
+        Val ->
+            {ok, Val}
+    catch
+        E:R ->
+            {error, {Name, E, R, Args}}
+    end.
 
 add_rec_type(Type, List) ->
     case lists:keyfind(<<"__rec">>, 1, List) of
