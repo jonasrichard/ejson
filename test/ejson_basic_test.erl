@@ -1,9 +1,7 @@
 -module(ejson_basic_test).
 
 -export([enc_fun/2,
-         dec_fun/1,
-         to_jsx/2,
-         from_jsx/1]).
+         dec_fun/1]).
 
 -import(ejson_test_util, [json_prop/2, json_path/2]).
 
@@ -39,23 +37,6 @@ pre_post_callback_test_() ->
     {ok, E} = ejson_encode:encode(Record, Rules, []),
     ?debugVal(E),
     {ok, D} = ejson_decode:decode(E, time, Rules, []),
-    ?_assertEqual(Record, D).
-
-to_jsx(_Tuple, {High, Low}) ->
-    [{<<"high">>, High}, {<<"low">>, Low}].
-
-from_jsx(Attrs) ->
-    {_, High} = lists:keyfind(<<"high">>, 1, Attrs),
-    {_, Low} = lists:keyfind(<<"low">>, 1, Attrs),
-    {High, Low}.
-
-generic_test_() ->
-    Rules = [{item, {generic, count, [{pre_encode, {?MODULE, to_jsx}},
-                                      {post_decode, {?MODULE, from_jsx}}]}}],
-    Record = {item, {15, 2}},
-    {ok, E} = ejson_encode:encode(Record, Rules, []),
-    ?debugVal(E),
-    {ok, D} = ejson_decode:decode(E, item, Rules, []),
     ?_assertEqual(Record, D).
 
 -define(TYPE(Val, Rules, Err),

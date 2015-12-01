@@ -138,9 +138,8 @@ apply_rule(Name, Value, Rules, Opts) ->
             mixed_list_rule(AttrName, Value, Rules, Opts);
         {list, AttrName, _FieldOpts} ->
             list_rule(AttrName, Value, Rules, Opts);
-        {generic, AttrName, _FieldOpts} ->
-            %% Generic encoding is handled in pre_process phase
-            {ok, {AttrName, Value}};
+        {generic, AttrName, FieldOpts} ->
+            generic_rule(AttrName, Value, FieldOpts, Rules, Opts);
         {const, AttrName, Const} ->
             {ok, {AttrName, encode1(Const, Rules, Opts)}};
         AttrName ->
@@ -200,6 +199,30 @@ record_rule(AttrName, Value, FieldOpts, Rules, Opts) when is_tuple(Value) ->
 record_rule(AttrName, Value, _FieldOpts, _Rules, _Opts) ->
     {error, {record_value_expected, AttrName, Value}}.
 
+generic_rule(AttrName, undefined, _FieldOpts, _Rules, _Opts) ->
+    {ok, {AttrName, null}};
+generic_rule(AttrName, Value, FieldOpts, Rules, Opts) ->
+    case lists:member(recursive, FieldOpts) of
+        false ->
+            %% If there is no recursive rule Value is expected to be
+            %% a jsx:term()
+            {ok, {AttrName, Value}};
+        true ->
+            %% Apply the rules recursively
+            case encode1(Value, Rules, Opts) of
+                {error, _} = E ->
+                    E;
+                AttrList ->
+                    case lists:keyfind(type, 1, FieldOpts) of
+                        false ->
+                            {error, {type_required, AttrName, FieldOpts}};
+                        {type, _Type} ->
+                            %% Check if {<<"__rec", Type} there 
+                            {ok, {AttrName, AttrList}}
+                    end
+            end
+    end.
+
 list_rule(AttrName, undefined, _Rules, _Opts) ->
     {ok, {AttrName, null}};
 list_rule(AttrName, Value, Rules, Opts) when is_list(Value) ->
@@ -254,7 +277,7 @@ maybe_pre_process({Type, Name, FieldOpts}, Tuple, Value) ->
                     {ok, Val}
             catch
                 E:R ->
-                    {error, {Name, E, R}}
+                    {error, {Name, E, R, Value}}
             end
     end;
 maybe_pre_process(_Rule, _Tuple, Value) ->

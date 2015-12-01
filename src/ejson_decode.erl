@@ -36,6 +36,20 @@ decode(AttrList, RecordName, Rules, Opts) ->
             {ok, Result}
     end.
 
+decode1([H | _] = List, Rules, Opts) when is_list(H) ->
+    %% List of list of name/value pairs is a list of objects in jsx
+    lists:foldl(
+      fun(AttrList, Acc) when is_list(Acc) ->
+              case decode1(AttrList, Rules, Opts) of
+                  {error, _} = E ->
+                      E;
+                  Record ->
+                      [Record | Acc]
+              end;
+         (_, {error, _} = E) ->
+              %% If we get an error, don't go on with processing
+              E
+      end, [], List);
 decode1(AttrList, Rules, Opts) ->
     case lists:keyfind(<<"__rec">>, 1, AttrList) of
         {_, Rec} ->
@@ -59,6 +73,7 @@ decode1(AttrList, RecordName, Rules, Opts) ->
             end
     end.
 
+%% TODO refactor this method
 extract_fields([], _, _, _) ->
     [];
 extract_fields([Field | F], AttrList, Rules, Opts) ->
@@ -134,9 +149,8 @@ extract_value(Rule, Value, Rules, Opts) ->
             extract_list(Value, [], Rules, Opts);
         {list, _, FieldOpts} ->
             extract_list(Value, FieldOpts, Rules, Opts);
-        {generic, _Name, _FieldOpts} ->
-            %% Let the post processor function makes the conversion
-            {ok, Value};
+        {generic, Name, FieldOpts} ->
+            extract_generic(Name, Value, FieldOpts, Rules, Opts);
         {const, _, _} ->
             {ok, undefined}
     end.
@@ -188,6 +202,26 @@ extract_record(Value, FieldOpts, Rules, Opts) ->
             {ok, decode1(Value, Type, Rules, Opts)}
     end.
 
+extract_generic(_Name, null, _FieldOpts, _Rules, _Opts) ->
+    {ok, undefined};
+extract_generic(Name, Value, FieldOpts, Rules, Opts) ->
+    case lists:member(recursive, FieldOpts) of
+        true ->
+            case lists:keyfind(type, 1, FieldOpts) of
+                false ->
+                    {error, {type_required, Name, FieldOpts}};
+                {type, Type} ->
+                    case decode1(Value, Type, Rules, Opts) of
+                        {error, _} = E ->
+                            E;
+                        Decoded ->
+                            apply_post_decode(Name, Decoded, FieldOpts)
+                    end
+            end;
+        false ->
+            apply_post_decode(Name, Value, FieldOpts)
+    end.
+
 extract_list(null, _FieldOpts, _Rules, _Opts) ->
     {ok, undefined};
 extract_list(Value, FieldOpts, Rules, Opts) ->
@@ -195,24 +229,54 @@ extract_list(Value, FieldOpts, Rules, Opts) ->
         undefined ->
             %% No target type for list element, it can be an attrlist
             %% or a primitive value
-            L = lists:map(
-              fun(V) when is_list(V) ->
-                      case get_rec_type(V) of
-                          undefined ->
-                              {error, no_record_type, V};
-                          Type ->
-                              decode1(V, Type, Rules, Opts)
-                      end;
-                 (V) ->
-                      V
-              end, Value),
-            {ok, L};
+            L = lists:foldl(
+                  fun(_, {error, _} = Acc) ->
+                          Acc;
+                     (V, Acc) when is_list(V) ->
+                          case get_rec_type(V) of
+                              undefined ->
+                                  {error, no_record_type, V};
+                              Type ->
+                                  case decode1(V, Type, Rules, Opts) of
+                                      {error, _} = E ->
+                                          E;
+                                      Decoded ->
+                                          [Decoded | Acc]
+                                  end
+                          end;
+                     (V, Acc) ->
+                          [V | Acc]
+                  end, [], Value),
+            case L of
+                {error, _} = E2 ->
+                    E2;
+                _ ->
+                    {ok, lists:reverse(L)}
+            end;
         Type ->
-            %% TODO error handling
-            {ok, [decode1(V, Type, Rules, Opts) || V <- Value]}
+            L = lists:foldl(
+                  fun(_, {error, _} = Acc) ->
+                          Acc;
+                     (V, Acc) ->
+                          case decode1(V, Type, Rules, Opts) of
+                              {error, _} = E3 ->
+                                  E3;
+                              Decoded ->
+                                  [Decoded | Acc]
+                          end
+                  end, [], Value),
+            case L of
+                {error, _} = E4 ->
+                    E4;
+                _ ->
+                    {ok, lists:reverse(L)}
+            end
     end.
 
 maybe_post_process({const, _Name, _Const}, Value) ->
+    {ok, Value};
+maybe_post_process({generic, _Name, _FieldOpts}, Value) ->
+    %% In case of generic rule post_decode is handled there
     {ok, Value};
 maybe_post_process({Type, Name, FieldOpts}, Value) ->
     case lists:keyfind(post_decode, 1, FieldOpts) of
@@ -223,17 +287,28 @@ maybe_post_process({Type, Name, FieldOpts}, Value) ->
                 _ ->
                     {ok, Value}
             end;
-        {post_decode, {M, F}} ->
-            try erlang:apply(M, F, [Value]) of
-                NewVal ->
-                    {ok, NewVal}
-            catch
-                E:R ->
-                    {error, {Name, E, R}}
-            end
+        {post_decode, Fun} ->
+            safe_call_fun(Name, Value, Fun)
     end;
 maybe_post_process(_, Value) ->
     {ok, Value}.
+
+apply_post_decode(Name, Value, FieldOpts) ->
+    case lists:keyfind(post_decode, 1, FieldOpts) of
+        false ->
+            {error, {no_post_decode, Name, FieldOpts}};
+        {post_decode, Fun} ->
+            safe_call_fun(Name, Value, Fun)
+    end.
+
+safe_call_fun(Name, Value, {M, F}) ->
+    try erlang:apply(M, F, [Value]) of
+        Val ->
+            {ok, Val}
+    catch
+        E:R ->
+            {error, {Name, E, R, Value}}
+    end.
 
 get_rec_type(JsxList) ->
     case lists:keyfind(<<"__rec">>, 1, JsxList) of
