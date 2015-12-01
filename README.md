@@ -170,6 +170,13 @@ Its JSON form is
 }
 ```
 
+During decoding we have a missing field (the pid which was skipped). In that case the `from_json` function will fill this skipped fields with undefined. If it is not apropritate for us, we can specify a default value in the skip rule.
+
+```erlang
+-json({request, {string, "path"}, {skip, [{default, no_pid}]},
+                {string, "method"}}).
+```
+
 #### Constant fields
 
 Let us suppose that we have an eventing system and we want to add an event type but only to the JSON and this information isn't in the record to be converted. Then we can add a constant field containing the type information.
@@ -182,11 +189,11 @@ to_json({event, 'node1@127.0.0.1'}).
 
 #### Derived fields
 
-Often we don't want to send `erlang:timestamp()` as is to the client side but we want to calculate a time can be feed into Javascript's `new Date(long)`.
+Often we don't want to send `os:timestamp()` as is to the client side but we want to calculate a time can be feed into Javascript's `new Date(long)`.
 
 We have the possibility to convert values before passing to JSON encoding engine (and also we can convert values after the JSON engine decoded from an incoming JSON). There are two types of manipulations here: converting the value of a field, or create a new field out of the blue.
 
-When we define a field we can provide `pre_encode/2` or `post_decode/1` hooks. Let us see how to work with `erlang:timestamp/0`.
+When we define a field we can provide `pre_encode/2` or `post_decode/1` hooks. Let us see how to work with `os:timestamp/0`.
 
 ```erlang
 -module(time).
@@ -214,19 +221,25 @@ to_ts(Millis) ->
 ejson:to_json({metric, os:timestamp(), 12.5}).
 ```
 
-During encoding the Erlang timestamp will be converted to millisecond values, which can be understood by Javascript. Decoding is done in the same fashion.
+During encoding the timestamp will be converted to millisecond values, which can be understood by Javascript. Decoding is done in the same fashion.
 
 When we don't want to (or we cannot) convert our tuples into a format which can be understood by ejson engine, we can convert our value into `jsx:term/0` type and vice versa.
 
 ```erlang
--json({invoice, {generic, item, [{pre_encode, {?MODULE, to_jsx}},
-                                 {post_decode, {?MODULE, from_jsx}}]}}).
+-json({invoice, {generic, item, [{pre_encode, {?MODULE, item_to_jsx}},
+                                 {post_decode, {?MODULE, jsx_to_item}}]}}).
 
--export([to_jsx/1, from_jsx/1]).
+-export([item_to_jsx/2, jsx_to_item/1]).
 
 %% Here we cannot define well specified rules, so our function will create
-%% a list of binary name/value pairs, acceptable by jsx library. 
-ejson:to_json({invoice, get_invoice()}).
+%% a list of binary name/value pairs, acceptable by jsx library.
+%% The pre_encode function get the record and the field value as parameters.
+item_to_jsx(_Invoice, Item) ->
+    convert_item(Item).
+
+jsx_to_item(Item) ->
+    %% Item is [{BinaryFieldName, BinaryValue}, ...] as jsx defines
+    extract_item(Item).
 ```
 
 #### Override type field generation
@@ -255,6 +268,20 @@ fetch(Key) ->
 ```
 
 So with the help of `-json_opt` we can refine the transformation, here we specified which records must generate `__rec` field whatever happens.
+
+#### Include conversion rules
+
+When we have different set of conversion rules in different files, we can inlcude conversion rules from another file (or files).
+
+```erlang
+-json_include(db_person).
+-json_include(db_invoice).
+
+...
+%% here we can refer to those types in the further -json rules
+```
+
+Those files have to be compiled first (at least before the file including them).
 
 ### Using without parse transform
 
