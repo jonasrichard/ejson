@@ -65,7 +65,7 @@ decode1(AttrList, RecordName, Rules, Opts) ->
         {error, _} = Error ->
             Error;
         Fields ->
-            case extract_fields(Fields, AttrList, Rules, Opts) of
+            case extract_fields(Fields, AttrList, Rules, Opts, []) of
                 {error, _} = Error ->
                     Error;
                 Values ->
@@ -74,9 +74,11 @@ decode1(AttrList, RecordName, Rules, Opts) ->
     end.
 
 %% TODO refactor this method
-extract_fields([], _, _, _) ->
-    [];
-extract_fields([Field | F], AttrList, Rules, Opts) ->
+%% This function should be tail-recursive because virtual rule needs to
+%% get the whole record what we have so far
+extract_fields([], _, _, _, Result) ->
+    Result;
+extract_fields([Field | F], AttrList, Rules, Opts, Result) ->
     case ejson_util:get_field_name(Field) of
         undefined ->
             %% The skip rule: we haven't included that field in json,
@@ -84,9 +86,9 @@ extract_fields([Field | F], AttrList, Rules, Opts) ->
             %% default value, let us specify it.
             case default_value(Field) of
                 false ->
-                    [undefined | extract_fields(F, AttrList, Rules, Opts)];
+                    extract_fields(F, AttrList, Rules, Opts, Result ++ [undefined]);
                 {_, DefValue} ->
-                    [DefValue | extract_fields(F, AttrList, Rules, Opts)]
+                    extract_fields(F, AttrList, Rules, Opts, Result ++ [DefValue])
             end;
         BareField ->
             Bf = if is_atom(BareField) ->
@@ -101,7 +103,7 @@ extract_fields([Field | F], AttrList, Rules, Opts) ->
                         false ->
                             {error, {no_value_for, Field}};
                         {_, DefVal} ->
-                            [DefVal | extract_fields(F, AttrList, Rules, Opts)]
+                            extract_fields(F, AttrList, Rules, Opts, Result ++ [DefVal])
                     end;
                 {_, Value} ->
                     %% Extract value based on Field rule
@@ -109,9 +111,11 @@ extract_fields([Field | F], AttrList, Rules, Opts) ->
                         {error, _} = Error ->
                             Error;
                         {ok, Extracted} ->
-                            case maybe_post_process(Field, Extracted) of
-                                {ok, NewVal} ->
-                                    [NewVal | extract_fields(F, AttrList, Rules, Opts)];
+                            case maybe_post_process(Field, Result, Extracted) of
+                                {ok, NewRes, NewVal} ->
+                                    extract_fields(F, AttrList, Rules, Opts, NewRes ++ [NewVal]);
+                                {ok, NewRes} ->
+                                    extract_fields(F, AttrList, Rules, Opts, NewRes);
                                 {error, _} = Error2 ->
                                     Error2
                             end
@@ -151,6 +155,8 @@ extract_value(Rule, Value, Rules, Opts) ->
             extract_list(Value, FieldOpts, Rules, Opts);
         {generic, Name, FieldOpts} ->
             extract_generic(Name, Value, FieldOpts, Rules, Opts);
+        {virtual, _, _} ->
+            {ok, Value};
         {const, _, _} ->
             {ok, undefined}
     end.
@@ -273,41 +279,59 @@ extract_list(Value, FieldOpts, Rules, Opts) ->
             end
     end.
 
-maybe_post_process({const, _Name, _Const}, Value) ->
-    {ok, Value};
-maybe_post_process({generic, _Name, _FieldOpts}, Value) ->
-    %% In case of generic rule post_decode is handled there
-    {ok, Value};
-maybe_post_process({Type, Name, FieldOpts}, Value) ->
+maybe_post_process({const, _Name, _Const}, Record, Value) ->
+    {ok, Record, Value};
+maybe_post_process({generic, _Name, _FieldOpts}, Record, Value) ->
+    {ok, Record, Value};
+maybe_post_process({virtual, Name, FieldOpts}, Record, Value) ->
+    case lists:keyfind(post_decode, 1, FieldOpts) of
+        false ->
+            {error, {no_post_decode, Name, Value}};
+        {post_decode, Fun} ->
+            case safe_call_fun(Name, Record, [Record, Value], Fun) of
+                {ok, _, NewRecord} ->
+                    {ok, NewRecord};
+                Error ->
+                    Error
+            end
+    end;
+maybe_post_process({Type, Name, FieldOpts}, Record, Value) ->
     case lists:keyfind(post_decode, 1, FieldOpts) of
         false ->
             case Type of
                 generic ->
                     {error, {no_post_decode, Name, Value}};
                 _ ->
-                    {ok, Value}
+                    {ok, Record, Value}
             end;
         {post_decode, Fun} ->
-            safe_call_fun(Name, Value, Fun)
+            safe_call_fun(Name, Record, [Value], Fun)
     end;
-maybe_post_process(_, Value) ->
-    {ok, Value}.
+maybe_post_process(_, Record, Value) ->
+    {ok, Record, Value}.
 
 apply_post_decode(Name, Value, FieldOpts) ->
     case lists:keyfind(post_decode, 1, FieldOpts) of
         false ->
             {error, {no_post_decode, Name, FieldOpts}};
-        {post_decode, Fun} ->
-            safe_call_fun(Name, Value, Fun)
+        {post_decode, {M, F}} ->
+            try erlang:apply(M, F, [Value]) of
+                Val ->
+                    {ok, Val}
+            catch
+                E:R ->
+                    {error, {Name, E, R, Value}}
+            end
     end.
 
-safe_call_fun(Name, Value, {M, F}) ->
-    try erlang:apply(M, F, [Value]) of
+%% TODO sort the parameters
+safe_call_fun(Name, Record, Args, {M, F}) ->
+    try erlang:apply(M, F, Args) of
         Val ->
-            {ok, Val}
+            {ok, Record, Val}
     catch
         E:R ->
-            {error, {Name, E, R, Value}}
+            {error, {Name, E, R, Args}}
     end.
 
 get_rec_type(JsxList) ->

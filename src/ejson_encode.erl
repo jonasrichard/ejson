@@ -140,6 +140,9 @@ apply_rule(Name, Value, Rules, Opts) ->
             list_rule(AttrName, Value, Rules, Opts);
         {generic, AttrName, FieldOpts} ->
             generic_rule(AttrName, Value, FieldOpts, Rules, Opts);
+        {virtual, AttrName, _FieldOpts} ->
+            %% The pre_encode already ran
+            {ok, {AttrName, Value}};
         {const, AttrName, Const} ->
             {ok, {AttrName, encode1(Const, Rules, Opts)}};
         AttrName ->
@@ -261,6 +264,14 @@ mixed_list_rule(AttrName, Value, _Rules, _Opts) ->
 
 maybe_pre_process({const, _Name, _Const}, _Tuple, Value) ->
     {ok, Value};
+maybe_pre_process({virtual, Name, FieldOpts}, Tuple, _Value) ->
+    case lists:keyfind(pre_encode, 1, FieldOpts) of
+        false ->
+            {error, {no_pre_encode, Name}};
+        {pre_encode, Fun} ->
+            %% In case of virtual only the tuple is passed
+            safe_call_fun(Name, [Tuple], Fun)
+    end;
 maybe_pre_process({Type, Name, FieldOpts}, Tuple, Value) ->
     case lists:keyfind(pre_encode, 1, FieldOpts) of
         false ->
@@ -271,17 +282,20 @@ maybe_pre_process({Type, Name, FieldOpts}, Tuple, Value) ->
                 _ ->
                     {ok, Value}
             end;
-        {pre_encode, {M, F}} ->
-            try erlang:apply(M, F, [Tuple, Value]) of
-                Val ->
-                    {ok, Val}
-            catch
-                E:R ->
-                    {error, {Name, E, R, Value}}
-            end
+        {pre_encode, Fun} ->
+            safe_call_fun(Name, [Tuple, Value], Fun)
     end;
 maybe_pre_process(_Rule, _Tuple, Value) ->
     {ok, Value}.
+
+safe_call_fun(Name, Args, {M, F}) ->
+    try erlang:apply(M, F, Args) of
+        Val ->
+            {ok, Val}
+    catch
+        E:R ->
+            {error, {Name, E, R, Args}}
+    end.
 
 add_rec_type(Type, List) ->
     case lists:keyfind(<<"__rec">>, 1, List) of
