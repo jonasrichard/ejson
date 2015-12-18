@@ -12,8 +12,8 @@ text_field_test_() ->
     {ok, J} = ejson:to_json(Rec1, Rules, []),
     {ok, D} = ejson:from_json(J, message, Rules, []),
 
-    [?_assertMatch({message, Name, "hu", Text}, D)
-     ].
+    {"Encode utf8 string and binary",
+     ?_assertMatch({message, Name, "hu", Text}, D)}.
 
 binary_to_string(Binary) ->
     unicode:characters_to_list(Binary).

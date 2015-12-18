@@ -3,44 +3,54 @@
 -export([enc_fun/2,
          dec_fun/1]).
 
--import(ejson_test_util, [json_prop/2, json_path/2]).
+-import(ejson_test_util, [json_prop/2, json_path/2, jsx_prop/2, jsx_path/2]).
+
+-compile({parse_transform, ejson_trans}).
 
 -include_lib("eunit/include/eunit.hrl").
 
+-json({time, {number, "jsTime", [{pre_encode, {?MODULE, enc_fun}},
+                                 {post_decode, {?MODULE, dec_fun}}]}}).
 
 value_test_() ->
-    Cases = [1, 3.4, true, false],
-    [?_assertEqual({ok, Expected}, ejson_encode:encode(Expected, [], []))
-        || Expected <- Cases].
+    [{"Encode integer value",
+        ?_assertEqual({ok, <<"1">>}, to_json(1))},
+     {"Encode real value",
+        ?_assertEqual({ok, <<"3.4">>}, to_json(3.4))},
+     {"Decode integer value",
+        ?_assertEqual({ok, 40}, from_json(<<"40">>))},
+     {"Decode real value",
+        ?_assertEqual({ok, 9.998877}, from_json(<<"9.998877">>))}].
 
 null_test_() ->
-    ?_assertEqual({ok, null}, ejson_encode:encode(undefined, [], [])).
+    [{"Encode null value", ?_assertEqual({ok, <<"null">>}, to_json(undefined))},
+     {"Decode null value", ?_assertEqual({ok, undefined}, from_json(<<"null">>))}].
 
 list_test_() ->
-    Cases = [
-             [],
-             [1, 2],
-             [true, 9],
-             [6.55, false],
-             [1, [], [2, 3]]
-            ],
-    [?_assertEqual({ok, Expected}, ejson_encode:encode(Expected, [], []))
-        || Expected <- Cases].
+    [{"Encode empty list",
+        ?_assertEqual({ok, <<"[]">>}, to_json([]))},
+     {"Decode empty list",
+        ?_assertEqual({ok, []}, from_json(<<"[]">>))},
+     {"Encode integer list",
+        ?_assertEqual({ok, <<"[1,2]">>}, to_json([1, 2]))},
+     {"Decode integer list",
+        ?_assertEqual({ok, [1, 2]}, from_json(<<"[1,2]">>))}
+    ].
 
 enc_fun(_Rec, Num) -> Num * 1000.
 dec_fun(Num) -> Num div 1000.
 
 pre_post_callback_test_() ->
-    Rules = [{time, {number, "jsTime", [{pre_encode, {?MODULE, enc_fun}},
-                                        {post_decode, {?MODULE, dec_fun}}]}}],
     Record = {time, 2300},
-    {ok, E} = ejson_encode:encode(Record, Rules, []),
-    ?debugVal(E),
-    {ok, D} = ejson_decode:decode(E, time, Rules, []),
-    ?_assertEqual(Record, D).
+    {ok, E} = to_json(Record),
+    {ok, D} = from_json(E, time),
+    [{"Encode record millisec", ?_assertEqual(2300000, json_prop(E, "jsTime"))},
+     {"Not encode record type", ?_assertEqual(undefined, json_prop(E, "__rec"))},
+     {"Decode record", ?_assertEqual(Record, D)}].
 
 -define(TYPE(Val, Rules, Err),
-        ?_assertEqual(Exp(Val, Err), Enc(Val, Rules))).
+        {lists:flatten(io_lib:format("~p error test", [Err])),
+            ?_assertEqual(Exp(Val, Err), Enc(Val, Rules))}).
 
 type_fail_test_() ->
     Rules1 = [{request, {atom, "method"}}],
@@ -60,23 +70,25 @@ type_fail_test_() ->
 
 embedded_record_test_() ->
     Rules = [{person, {string, name}, {record, address}},
-            {address, {string, city}, {string, country}}],
+             {address, {string, city}, {string, country}}],
     Rec = {person, "Joe", {address, "Budapest", "Hun"}},
     {ok, Enc} = ejson_encode:encode(Rec, Rules, []),
-    {ok, J} = ejson:to_jsx(Rec, Rules, []),
     {ok, Dec} = ejson_decode:decode(Enc, person, Rules, []),
-    ?debugVal(Dec),
-    Addr = json_prop(Enc, "address"),
-    [?_assertEqual(<<"Joe">>, json_prop(Enc, "name")),
-     ?_assertEqual(<<"Budapest">>, json_prop(Addr, "city")),
-     ?_assertEqual(<<"Hun">>, json_prop(Addr, "country")),
-     ?_assertEqual(<<"address">>, json_path(J, "address.__rec")),
-     ?_assertMatch({person, _, {address, "Budapest", "Hun"}}, Dec)].
+    [{"String field",
+        ?_assertEqual(<<"Joe">>, jsx_prop(Enc, "name"))},
+     {"Embedded field",
+        [?_assertEqual(<<"Budapest">>, jsx_path(Enc, "address.city")),
+         ?_assertEqual(<<"Hun">>, jsx_path(Enc, "address.country"))]},
+     {"__rec field present",
+        ?_assertEqual(<<"address">>, jsx_path(Enc, "address.__rec"))},
+     {"Whole record equality",
+        ?_assertMatch({person, _, {address, "Budapest", "Hun"}}, Dec)}].
 
 typed_record_test_() ->
     Rules = [{person, {string, name}, {record, address, [{type, address}]}},
             {address, {string, city}, {string, country}}],
     Rec = {person, "Joe", {address, "Budapest", "Hun"}},
-    {ok, J} = ejson:to_jsx(Rec, Rules, []),
-    ?_assertEqual(undefined, json_path(J, "address.__rec")).
+    {ok, J} = ejson:to_json(Rec, Rules, []),
+    {"Untyped record has no __rec",
+        ?_assertEqual(undefined, json_path(J, "address.__rec"))}.
 

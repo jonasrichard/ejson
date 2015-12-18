@@ -6,8 +6,9 @@
 -include_lib("proper/include/proper.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
-all_test() ->
-    ?assertEqual([], proper:module(?MODULE, [{to_file, user}])).
+all_test_() ->
+    {"Property check enc/dec funs",
+     ?_assertEqual([], proper:module(?MODULE, [{to_file, user}]))}.
 
 pick_one(List) ->
     lists:nth(random:uniform(length(List)), List).
@@ -71,8 +72,8 @@ pre_conv(_Tuple, Value) ->
 post_conv(Value) ->
     Value.
 
-proplist() ->
-    list({symb_name(), integer()}).
+%proplist() ->
+%    list({symb_name(), integer()}).
 
 basic(skip, _Rules, _Depth) ->
     undefined;
@@ -106,8 +107,8 @@ basic({number, _Name}, _Rules, _Depth) ->
 basic({number, _Name, _FieldOpts}, _Rules, _Depth) ->
     integer().
 
-value(RecordRule, Rules) ->
-    ?SIZED(S, value(RecordRule, Rules, S)).
+%value(RecordRule, Rules) ->
+%    ?SIZED(S, value(RecordRule, Rules, S)).
 
 value(RecordRule, Rules, Depth) ->
     [RecordName | FieldRules] = tuple_to_list(RecordRule),

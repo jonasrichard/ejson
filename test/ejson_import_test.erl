@@ -10,8 +10,6 @@
 
 -json({library, {string, name}, {list, books, [{type, book}]}}).
 
-%% TODO sometimes it fails, sometimes it doesn't
-%% It seems that sometimes the module isn't there after compilation
 include_test_() ->
     A1 = {author, "John", undefined, "Smith"},
     A2 = {author, "John", "Davison", "Rockefeller"},
@@ -20,4 +18,4 @@ include_test_() ->
           {book, "History of rats", A2, 1944}]},
     {ok, E} = to_json(L),
     {ok, D} = from_json(E, library),
-    [?_assertEqual(L, D)].
+    {"Include enc/dec should not fail", [?_assertEqual(L, D)]}.

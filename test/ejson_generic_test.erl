@@ -3,7 +3,7 @@
 -export([to_jsx/2, from_jsx/1,
          dict_to_entries/2, entries_to_dict/1]).
 
--import(ejson_test_util, [json_prop/2, json_path/2]).
+-import(ejson_test_util, [json_prop/2, json_path/2, jsx_prop/2, jsx_path/2]).
 
 -include_lib("eunit/include/eunit.hrl").
 
@@ -21,9 +21,13 @@ generic_test_() ->
                                       {post_decode, {?MODULE, from_jsx}}]}}],
     Record = {item, {15, 2}},
     {ok, E} = ejson_encode:encode(Record, Rules, []),
-    ?debugVal(E),
     {ok, D} = ejson_decode:decode(E, item, Rules, []),
-    ?_assertEqual(Record, D).
+    [{"Tuple is encoded as Json",
+        [?_assertEqual({<<"high">>, 15}, jsx_path(E, "count.1")),
+         ?_assertEqual({<<"low">>, 2}, jsx_path(E, "count.2"))]},
+     {"Decoded as tuple",
+        ?_assertMatch(Record, D)}
+    ].
 
 dict_to_entries(_Record, Dict) ->
     Entries = dict:fold(
@@ -60,11 +64,13 @@ recursive_generic_test_() ->
 
     {ok, J} = ejson_encode:encode(Record, Rules, []),
     {ok, D} = ejson_decode:decode(J, person, Rules, []),
-    
-    [?_assertEqual(<<"Jimmy Lee">>, json_path(J, "name")),
-     ?_assertEqual(<<"Kantor">>, json_path(J, "pets.entries.1.name")),
-     ?_assertEqual(<<"Brownie">>, json_path(J, "pets.entries.2.name")),
-     ?_assertEqual(<<"Killer">>, json_path(J, "pets.entries.3.name")),
-     ?_assertMatch({person, "Jimmy Lee", _}, D)
-    ].
+   
+    [{"Dict KV as entries",
+      [?_assertEqual(<<"Jimmy Lee">>, jsx_path(J, "name")),
+       ?_assertEqual(<<"Kantor">>, jsx_path(J, "pets.entries.1.name")),
+       ?_assertEqual(<<"Brownie">>, jsx_path(J, "pets.entries.2.name")),
+       ?_assertEqual(<<"Killer">>, jsx_path(J, "pets.entries.3.name"))
+      ]},
+     {"Decoding to dict",
+      ?_assertMatch({person, "Jimmy Lee", _}, D)}].
                       

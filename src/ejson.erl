@@ -99,13 +99,10 @@ from_json_modules(Binary, ModuleList, Record) ->
 
 from_json(Binary, Rules, Opts) ->
     Decoded = jsx:decode(Binary),
-    case lists:keyfind(<<"__rec">>, 1, Decoded) of
-        {<<"__rec">>, TypeBin} ->
-            Record = binary_to_atom(TypeBin, utf8),
-            ejson_decode:decode(Decoded, Record, Rules, Opts);
-        false ->
-            {error, no_root_record_type}
-    end.
+    %% We don't know what can be in the result, so detect it!
+    %% It can be primitive value, primitive value list, or list of records
+    %% or simple just a record.
+    decode_value(Decoded, Rules, Opts).
 
 from_json(Binary, Record, Rules, Opts) ->
     Decoded = jsx:decode(Binary),
@@ -130,3 +127,72 @@ json_opts(ModuleList) ->
 extract_attrs(Module, Attr) ->
     [V || {A, [V]} <- proplists:get_value(attributes, Module:module_info()),
           A =:= Attr].
+
+%% Detect the target value: number, null, list, complex_list or record
+jsx_detect(L) when is_list(L) ->
+    Primitives = lists:all(
+                   fun(Elem) ->
+                           is_number(Elem) orelse is_atom(Elem)
+                   end, L),
+    case Primitives of
+        true ->
+            list;
+        false ->
+            Fields = lists:all(
+                       fun({Name, _Value}) ->
+                               is_binary(Name);
+                          (_) ->
+                               false
+                       end, L),
+            case Fields of
+                true ->
+                    record;
+                false ->
+                    complex_list
+            end
+    end;
+jsx_detect(N) when is_number(N) ->
+    number;
+jsx_detect(null) ->
+    null.
+
+%% Decode the value according to the detection
+decode_value(Decoded, Rules, Opts) ->
+    case jsx_detect(Decoded) of
+        number ->
+            {ok, Decoded};
+        null ->
+            {ok, undefined};
+        record ->
+            case lists:keyfind(<<"__rec">>, 1, Decoded) of
+                {<<"__rec">>, TypeBin} ->
+                    Record = binary_to_atom(TypeBin, utf8),
+                    ejson_decode:decode(Decoded, Record, Rules, Opts);
+                false ->
+                    {error, no_root_record_type}
+            end;
+        list ->
+            {ok, Decoded};
+        complex_list ->
+            complex_list(Decoded, Rules, Opts)
+    end.
+
+%% Decode complex list recursively
+complex_list(List, Rules, Opts) ->
+    Result = lists:foldl(
+               fun(_, {error, _} = E) ->
+                       E;
+                  (Elem, Acc) ->
+                       case decode_value(Elem, Rules, Opts) of
+                           {ok, Value} ->
+                               [Value | Acc];
+                           {error, _} = E ->
+                               E
+                       end
+               end, [], List),
+    case Result of
+        {error, _} = E2 ->
+            E2;
+        _ ->
+            {ok, Result}
+    end.
