@@ -206,7 +206,7 @@ record_rule(AttrName, Value, _FieldOpts, _Rules, _Opts) ->
 
 map_rule(AttrName, undefined, _FieldOpts, _Rules, _Opts) ->
     {ok, {AttrName, null}};
-map_rule(AttrName, Value, FieldOpts, Rules, Opts) ->
+map_rule(AttrName, Value, _FieldOpts, _Rules, _Opts) ->
     {ok, {AttrName, Value}}.
 
 generic_rule(AttrName, undefined, _FieldOpts, _Rules, _Opts) ->

@@ -212,7 +212,7 @@ extract_record(Value, FieldOpts, Rules, Opts) ->
 
 extract_map(_Name, null, _FieldOpts, _Rules, _Opts) ->
     {ok, undefined};
-extract_map(Name, Value, FieldOpts, Rules, Opts) ->
+extract_map(_Name, Value, _FieldOpts, _Rules, _Opts) ->
     {ok, Value}.
 
 extract_generic(_Name, null, _FieldOpts, _Rules, _Opts) ->
