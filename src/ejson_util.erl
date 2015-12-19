@@ -76,6 +76,7 @@ get_field_name({Type, Field, _FieldOpts}) when Type =:= atom orelse
                                                Type =:= boolean orelse
                                                Type =:= const orelse
                                                Type =:= list orelse
+                                               Type =:= map orelse
                                                Type =:= number orelse
                                                Type =:= record orelse
                                                Type =:= string orelse

@@ -242,6 +242,37 @@ jsx_to_item(Item) ->
     extract_item(Item).
 ```
 
+#### Map support
+
+`ejson` supports maps, too. In a map key/value mappings are there, but we don't restrict maps to have specific key and value format, type. So in case of maps one should encode key-value pairs to jsx terms in a `pre_encode` function. During decoding one should defined a `post_decode` which convert jsx term back to map.
+
+```
+-json({address, {map, data, [{pre_encode, {?MODULE, to_jsx}},
+                             {post_decode, {?MODULE, from_jsx}}]}}).
+
+%% K/V: atom/list -> {binary, binary}
+to_jsx(_Record, Map) ->
+    maps:fold(
+      fun(K, V, Acc) ->
+          [{atom_to_binary(K, utf8), list_to_binary(V)} | Acc]
+      end, [], Map).
+
+
+%% Convert jsx to K/V
+from_jsx(Jsx) ->
+    lists:foldl(
+      fun({K, V}, Acc) ->
+              maps:put(binary_to_atom(K, utf8), binary_to_list(V), Acc)
+      end, #{}, Jsx).
+
+...
+to_json({address, #{country => "Hungary",
+                    city => "Budapest",
+                    zip => "1085",
+                    street => "Szigony str 5."}}).
+...
+```
+
 #### Override type field generation
 
 Sometimes (especially in case of root records of a record hierarchy) it is comfortable if `ejson` generates `__rec` field to some records. If we want to store records in database we won't know which type of records we will read, so it is logical to generate the `__rec` field to some records. In this example we are storing books and CDs both having author. Author records don't necessary need `__rec` field, but books and CDs need to have.

@@ -138,6 +138,8 @@ apply_rule(Name, Value, Rules, Opts) ->
             mixed_list_rule(AttrName, Value, Rules, Opts);
         {list, AttrName, _FieldOpts} ->
             list_rule(AttrName, Value, Rules, Opts);
+        {map, AttrName, FieldOpts} ->
+            map_rule(AttrName, Value, FieldOpts, Rules, Opts);
         {generic, AttrName, FieldOpts} ->
             generic_rule(AttrName, Value, FieldOpts, Rules, Opts);
         {virtual, AttrName, _FieldOpts} ->
@@ -201,6 +203,11 @@ record_rule(AttrName, Value, FieldOpts, Rules, Opts) when is_tuple(Value) ->
     end;
 record_rule(AttrName, Value, _FieldOpts, _Rules, _Opts) ->
     {error, {record_value_expected, AttrName, Value}}.
+
+map_rule(AttrName, undefined, _FieldOpts, _Rules, _Opts) ->
+    {ok, {AttrName, null}};
+map_rule(AttrName, Value, FieldOpts, Rules, Opts) ->
+    {ok, {AttrName, Value}}.
 
 generic_rule(AttrName, undefined, _FieldOpts, _Rules, _Opts) ->
     {ok, {AttrName, null}};
@@ -271,6 +278,13 @@ maybe_pre_process({virtual, Name, FieldOpts}, Tuple, _Value) ->
         {pre_encode, Fun} ->
             %% In case of virtual only the tuple is passed
             safe_call_fun(Name, [Tuple], Fun)
+    end;
+maybe_pre_process({map, Name, FieldOpts}, Tuple, Value) ->
+    case lists:keyfind(pre_encode, 1, FieldOpts) of
+        false ->
+            {error, {no_pre_encode, Name, Value}};
+        {pre_encode, Fun} ->
+            safe_call_fun(Name, [Tuple, Value], Fun)
     end;
 maybe_pre_process({Type, Name, FieldOpts}, Tuple, Value) ->
     case lists:keyfind(pre_encode, 1, FieldOpts) of
