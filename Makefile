@@ -24,8 +24,9 @@ ejson-transform:
 	$(gen_verbose) erlc -v $(TEST_ERLC_OPTS) -I include/ -o $(TEST_DIR) \
 		$(foreach f,$(TEST_COMPILE_FIRST), test/$(f).erl) -pa ebin/
 
+
 # Compile included test files first during testing 
-tests:: ejson-transform
+test-dir: ejson-transform
 	$(gen_verbose) erlc -v $(TEST_ERLC_OPTS) -I include/ -o $(TEST_DIR) \
 		$(call core_find,$(TEST_DIR)/,*.erl) -pa ebin/
 
