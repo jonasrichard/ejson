@@ -1,8 +1,13 @@
 
-.PHONY: compile run
+.PHONY: try
+.DEFAULT_GOAL: try
 
-compile:
-	../rebar -C rebar.config compile
+PROJECT = records
 
-run:
-	erl -pz ../ebin ../deps/jsx/ebin apps/records/ebin -s records -s init stop
+PZ = ../deps/jsx/ebin ../deps/ebin ebin
+
+try: app
+	erl -pz $(PZ) -s records -s init stop
+
+include ../erlang.mk
+
