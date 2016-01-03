@@ -15,7 +15,6 @@ map_test_() ->
                           street => "Szigony str 5."}},
 
     {ok, E} = ejson:to_json(Address, Rules, []),
-    ?debugVal(E),
     {ok, D} = ejson:from_json(E, address, Rules, []),
 
     [{"Map has 4 items",
