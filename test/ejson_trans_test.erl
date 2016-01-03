@@ -17,7 +17,7 @@ simple_test_() ->
     Record = {square, 50},
     {ok, Json} = to_json(Record),
     {ok, Square} = from_json(Json, square),
-    ?_assert(Record =:= Square).
+    {"Parse transform enc/dec", ?_assert(Record =:= Square)}.
 
 book_test_() ->
     A1 = {author, "John", undefined, "Smith"},
@@ -28,5 +28,5 @@ book_test_() ->
     {ok, J2} = to_json(B2),
     {ok, D1} = from_json(J1, book),
     {ok, D2} = from_json(J2, book),
-    [?_assertEqual(D1, B1),
-     ?_assertEqual(D2, B2)].
+    {"Another parse transform test",
+     [?_assertEqual(D1, B1), ?_assertEqual(D2, B2)]}.

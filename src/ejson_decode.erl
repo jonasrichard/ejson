@@ -153,6 +153,8 @@ extract_value(Rule, Value, Rules, Opts) ->
             extract_list(Value, [], Rules, Opts);
         {list, _, FieldOpts} ->
             extract_list(Value, FieldOpts, Rules, Opts);
+        {map, Name, FieldOpts} ->
+            extract_map(Name, Value, FieldOpts, Rules, Opts);
         {generic, Name, FieldOpts} ->
             extract_generic(Name, Value, FieldOpts, Rules, Opts);
         {virtual, _, _} ->
@@ -207,6 +209,11 @@ extract_record(Value, FieldOpts, Rules, Opts) ->
         Type ->
             {ok, decode1(Value, Type, Rules, Opts)}
     end.
+
+extract_map(_Name, null, _FieldOpts, _Rules, _Opts) ->
+    {ok, undefined};
+extract_map(_Name, Value, _FieldOpts, _Rules, _Opts) ->
+    {ok, Value}.
 
 extract_generic(_Name, null, _FieldOpts, _Rules, _Opts) ->
     {ok, undefined};

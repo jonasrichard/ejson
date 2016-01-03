@@ -1,4 +1,4 @@
--module(ejson_autoexports_test).
+-module(ejson_autoexports).
 
 -export([to_json/1]).
 
@@ -8,3 +8,5 @@
 -json({planet,
        {binary, "name"},
        {number, "population", [{default, undefined}]}}).
+
+

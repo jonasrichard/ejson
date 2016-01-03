@@ -7,7 +7,10 @@
 -include_lib("eunit/include/eunit.hrl").
 
 %% Test for default value for address
--json({book, {string, "title"}, {list, "authors", [{type, person}]}, {number, "year"}}).
+-json({book, {string, "title"},
+             {list, "authors", [{type, person}]},
+             {number, "year"}}).
+
 %% People can be authors
 -json({person, {string, "name"},
                {string, "address", [{default, "No address"}]}}).
@@ -20,30 +23,31 @@ default_test_() ->
     B = {book, "Treasure Island", [{person, "Robert Louis Stevenson"}], 1911},
     {ok, Enc} = to_json(B),
     {ok, Dec} = from_json(Enc, book),
-    ?_assertMatch({book, _, [{person, _, undefined}], 1911}, Dec).
+    {"Person has no address, null -> undefined",
+        [?_assertEqual(null, json_path(Enc, "authors.1.address")),
+         ?_assertMatch({book, _, [{person, _, undefined}], 1911}, Dec)]}.
 
 default_real_test_() ->
     Enc = <<"{\"title\":\"Treasure Island\","
             " \"authors\":[{\"name\":\"Robert Louis Stevenson\"}],"
             " \"year\":1911}">>,
     {ok, Dec} = from_json(Enc, book),
-    ?_assertMatch({book, "Treasure Island", [{person, "Robert Louis Stevenson", "No address"}], 1911},
-                  Dec).
-
-default_field_test_() ->
-    B = {book, "Treasure Island", [{person, "Robert Louis Stevenson"}], 1911},
-    {ok, J} = ejson:to_jsx_modules(B, [?MODULE]),
-    ?debugVal(J),
-    [?_assertEqual(<<"Treasure Island">>, json_path(J, "title")),
-     ?_assertEqual(<<"Robert Louis Stevenson">>, json_path(J, "authors.1.name")),
-     ?_assertEqual(null, json_path(J, "authors.1.address"))].
+    {"Address is missing in Json",
+        ?_assertMatch({book, "Treasure Island",
+                             [{person, "Robert Louis Stevenson", "No address"}],
+                             1911},
+                      Dec)}.
 
 default_undefined_test_() ->
     Enc = <<"{\"name\":\"Mars\"}">>,
     {ok, Dec} = from_json(Enc, planet),
-    ?_assertMatch({planet, <<"Mars">>, undefined}, Dec).
+    {"Missing is forced to undefined",
+        ?_assertMatch({planet, <<"Mars">>, undefined}, Dec)}.
 
 default_undefined_encode_test_() ->
     P = {planet, <<"Mars">>, undefined},
     {ok, Enc} = to_json(P),
-    ?_assertMatch(<<"{\"name\":\"Mars\"}">>, Enc).
+    [{"Undefined is missing",
+        ?_assertEqual(undefined, json_path(Enc, "population"))},
+     {"Undefined is not decoded",
+        ?_assertMatch(<<"{\"name\":\"Mars\"}">>, Enc)}].

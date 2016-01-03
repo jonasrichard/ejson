@@ -1,7 +1,8 @@
 {application, records, [
     {description, "Test application for ejson"},
-    {id, records},
+    {id, "records"},
     {vsn, "0.1.0"},
+    {modules, []},
     {applications, [
         kernel,
         stdlib,

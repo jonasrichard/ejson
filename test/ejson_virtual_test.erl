@@ -2,7 +2,7 @@
 
 -export([wealth_jsx/1, jsx_wealth/2]).
 
--import(ejson_test_util, [json_prop/2, json_path/2]).
+-import(ejson_test_util, [jsx_path/2]).
 
 -include_lib("eunit/include/eunit.hrl").
 
@@ -21,8 +21,8 @@ add_field_test_() ->
     Record = {person, 40, 10000},
 
     {ok, J} = ejson_encode:encode(Record, Rules, []),
-    ?debugVal(J),
     {ok, D} = ejson_decode:decode(J, person, Rules, []),
-    ?debugVal(D),
-    [?_assertEqual(170000, json_path(J, "wealth")),
-     ?_assertMatch({person, 40, 11000}, D)].
+    [{"Virtual field genered into json",
+      ?_assertEqual(170000, jsx_path(J, "wealth"))},
+     {"Virtual fields are dropped during decoding but modify record",
+      ?_assertMatch({person, 40, 11000}, D)}].
