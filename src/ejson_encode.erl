@@ -190,6 +190,13 @@ record_rule(AttrName, undefined, _FieldOpts, _Rules, _Opts) ->
     {ok, {AttrName, null}};
 record_rule(AttrName, Value, FieldOpts, Rules, Opts) when is_tuple(Value) ->
     case encode1(Value, Rules, Opts) of
+        {error, {no_such_record, Actual}} = E2 ->
+            case lists:keyfind(type, 1, FieldOpts) of
+                false ->
+                    E2;
+                {type, Expected} ->
+                    {error, {mismatched_record, Actual, Expected}}
+            end;
         {error, _} = E ->
             E;
         AttrList ->

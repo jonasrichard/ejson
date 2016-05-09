@@ -32,3 +32,12 @@ root_record_rec_test_() ->
       ?_assertEqual(<<"book">>, json_path(J, "__rec"))},
      {"Decode works since __rec defined",
       ?_assertEqual(Rec, R)}].
+
+record_type_mismatch_test_() ->
+    Rules = [{book, {string, title},
+                    {record, author, [{type, author}]}},
+             {author, {string, name}}],
+    Rec = {book, "Comprehensive guide to Javascript",
+                 {author2, "John Mismatch"}},
+    Mismatch = ejson:to_json(Rec, Rules, []),
+    [?_assertEqual({error, {mismatched_record, author2, author}}, Mismatch)].
