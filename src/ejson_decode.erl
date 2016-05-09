@@ -131,8 +131,8 @@ extract_value(Rule, Value, Rules, Opts) ->
             extract_atom(Value);
         {binary, _} ->
             extract_binary(Value);
-        {binary, _, _} ->
-            extract_binary(Value);
+        {binary, _, FieldOpts} ->
+            extract_binary(Value, FieldOpts);
         {boolean, _} ->
             extract_boolean(Value);
         {boolean, _, _} ->
@@ -178,6 +178,21 @@ extract_binary(null) ->
     {ok, undefined};
 extract_binary(Value) ->
     {ok, Value}.
+
+extract_binary(null, _FieldOpts) ->
+    {ok, undefined};
+extract_binary(Value, FieldOpts) ->
+    case lists:member(base64, FieldOpts) of
+        false ->
+            {ok, Value};
+        true ->
+            try
+                {ok, base64:decode(Value)}
+            catch
+                _:_ ->
+                    {error, {illegal_base64_binary, Value}}
+            end
+    end.
 
 extract_boolean(null) ->
     {ok, undefined};

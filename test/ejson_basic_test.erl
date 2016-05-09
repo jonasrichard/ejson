@@ -11,6 +11,7 @@
 
 -json({time, {number, "jsTime", [{pre_encode, {?MODULE, enc_fun}},
                                  {post_decode, {?MODULE, dec_fun}}]}}).
+-json({message, {binary, body, [base64]}}).
 
 value_test_() ->
     [{"Encode integer value",
@@ -36,6 +37,14 @@ list_test_() ->
      {"Decode integer list",
         ?_assertEqual({ok, [1, 2]}, from_json(<<"[1,2]">>))}
     ].
+
+base64_test_() ->
+    [{"Base64 encode binaries",
+        ?_assertEqual({ok, <<"{\"body\":\"V2UgYXJlIHNpbmtpbmch\"}">>},
+                      to_json({message, <<"We are sinking!">>}))},
+     {"Base64 decode binaries",
+        ?_assertEqual({ok, {message, <<"S3cr3t">>}},
+                      from_json(<<"{\"body\":\"UzNjcjN0\"}">>, message))}].
 
 enc_fun(_Rec, Num) -> Num * 1000.
 dec_fun(Num) -> Num div 1000.

@@ -124,8 +124,8 @@ apply_rule(Name, Value, Rules, Opts) ->
             atom_rule(AttrName, Value);
         {binary, AttrName} ->
             binary_rule(AttrName, Value);
-        {binary, AttrName, _FieldOpts} ->
-            binary_rule(AttrName, Value);
+        {binary, AttrName, FieldOpts} ->
+            binary_rule(AttrName, Value, FieldOpts);
         {string, AttrName} ->
             string_rule(AttrName, Value);
         {string, AttrName, _FieldOpts} ->
@@ -178,6 +178,18 @@ binary_rule(AttrName, Value) when is_binary(Value) ->
     {ok, {AttrName, Value}};
 binary_rule(AttrName, Value) ->
     {error, {binary_value_expected, AttrName, Value}}.
+
+binary_rule(AttrName, undefined, _FieldOpts) ->
+    binary_rule(AttrName, undefined);
+binary_rule(AttrName, Value, FieldOpts) when is_binary(Value) ->
+    case lists:member(base64, FieldOpts) of
+        false ->
+            {ok, {AttrName, Value}};
+        true ->
+            {ok, {AttrName, base64:encode(Value)}}
+    end;
+binary_rule(AttrName, Value, _FieldOpts) ->
+    binary_rule(AttrName, Value).
 
 string_rule(AttrName, undefined) ->
     {ok, {AttrName, null}};
