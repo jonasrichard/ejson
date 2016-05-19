@@ -44,8 +44,15 @@ walk([{attribute, _Line, json, RecordSpec} = Attr | T], A, R, O, L) ->
     walk(T, [Attr | A], [RecordSpec | R], O, L);
 walk([{attribute, Line, json_include, Modules} = Attr | T], A, R, O, L) ->
     %% handle -json_include by reading the records and opts from modules
-    Attrs = read_attributes(Line, Modules),
-    Opts = read_opts(Line, Modules),
+    %% one can specify only one module or a list of modules
+    Modules1 = case Modules of
+                   _ when is_atom(Modules) ->
+                       [Modules];
+                   _ ->
+                       Modules
+               end,
+    Attrs = read_attributes(Line, Modules1),
+    Opts = read_opts(Line, Modules1),
     walk(T, [Attr | A], Attrs ++ R, Opts ++ O, L);
 walk([{attribute, _Line, json_opt, Opt} = Attr | T], A, R, O, L) ->
     %% handle -json_opt

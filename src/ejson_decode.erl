@@ -217,11 +217,26 @@ extract_record(null, FieldOpts, Rules, Opts) ->
             extract_record(Default, FieldOpts, Rules, Opts)
     end;
 extract_record(Value, FieldOpts, Rules, Opts) ->
-    case proplists:get_value(type, FieldOpts) of
+    Type = proplists:get_value(type, FieldOpts),
+    case proplists:get_value(module, FieldOpts) of
         undefined ->
-            %% TODO error handling
+            case Type of
+                undefined ->
+                    %% TODO error handling
+                    {ok, decode1(Value, Rules, Opts)};
+                _ ->
+                    {ok, decode1(Value, Type, Rules, Opts)}
+            end;
+        Module ->
+            extract_external_record(Value, Type, Module)
+    end.
+
+extract_external_record(Value, Type, Module) ->
+    {Rules, Opts} = ejson:json_modules(Module),
+    case Type of
+        undefined ->
             {ok, decode1(Value, Rules, Opts)};
-        Type ->
+        _ ->
             {ok, decode1(Value, Type, Rules, Opts)}
     end.
 

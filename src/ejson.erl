@@ -33,7 +33,8 @@
         from_json_modules/2,
         from_json_modules/3,
         json_rules/1,
-        json_opts/1
+        json_opts/1,
+        json_modules/1
     ]).
 
 %%%----------------------------------------------------------------------------
@@ -123,6 +124,12 @@ json_opts(ModuleList) ->
       fun(Module, Acc) ->
           extract_attrs(Module, json_opt) ++ Acc
       end, [], ModuleList).
+
+%% Get all rules and opts from a module, taking care of json_include attributes.
+%% For dynamic rule collection {module, Module} field opts
+json_modules(Module) ->
+    Modules = [Module | extract_attrs(Module, json_include)],
+    {json_rules(Modules), json_opts(Modules)}.
 
 extract_attrs(Module, Attr) ->
     [V || {A, [V]} <- proplists:get_value(attributes, Module:module_info()),

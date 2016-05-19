@@ -201,7 +201,7 @@ string_rule(AttrName, Value) ->
 record_rule(AttrName, undefined, _FieldOpts, _Rules, _Opts) ->
     {ok, {AttrName, null}};
 record_rule(AttrName, Value, FieldOpts, Rules, Opts) when is_tuple(Value) ->
-    case encode1(Value, Rules, Opts) of
+    case maybe_external_record_rule(Value, FieldOpts, Rules, Opts) of
         {error, {no_such_record, Actual}} = E2 ->
             case lists:keyfind(type, 1, FieldOpts) of
                 false ->
@@ -222,6 +222,21 @@ record_rule(AttrName, Value, FieldOpts, Rules, Opts) when is_tuple(Value) ->
     end;
 record_rule(AttrName, Value, _FieldOpts, _Rules, _Opts) ->
     {error, {record_value_expected, AttrName, Value}}.
+
+maybe_external_record_rule(Value, FieldOpts, Rules, Opts) ->
+    case lists:keyfind(module, 1, FieldOpts) of
+        false ->
+            %% Internal record, defined in the same module
+            encode1(Value, Rules, Opts);
+        {module, Module} ->
+            {Rules1, Opts1} = ejson:json_modules(Module),
+            case encode1(Value, Rules1, Opts1) of
+                {error, _} = E ->
+                    E;
+                Result ->
+                    Result
+            end
+    end.
 
 map_rule(AttrName, undefined, _FieldOpts, _Rules, _Opts) ->
     {ok, {AttrName, null}};

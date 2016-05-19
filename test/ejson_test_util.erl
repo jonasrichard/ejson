@@ -2,6 +2,8 @@
 
 -compile([export_all]).
 
+-include_lib("eunit/include/eunit.hrl").
+
 -spec json_prop(binary(), string()) -> undefined | term().
 json_prop(Json, PropName) ->
     jsx_prop(jsx:decode(Json), PropName).
@@ -30,3 +32,10 @@ jsx_path(Jsx, Path) ->
          (Elem, J) ->
               jsx_prop(J, Elem)
       end, Jsx, P).
+
+assertJsonPath(Json, Path, Value) ->
+    ?_assertEqual(Value, json_path(Json, Path)).
+
+assertJsonPathList(Json, PathsAndValues) ->
+    [assertJsonPath(Json, P, V) || {P, V} <- PathsAndValues].
+
