@@ -1,6 +1,8 @@
 language: erlang
 otp_release:
     - 18.1
+before_script:
+    kerl list installations
 script:
     make deps app tests
 
