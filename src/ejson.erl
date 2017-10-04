@@ -95,8 +95,9 @@ from_json_modules(Binary, ModuleList) ->
     from_json(Binary, Rules, Opts).
 
 from_json_modules(Binary, ModuleList, Record) ->
-    Opts = json_rules(ModuleList),
-    from_json(Binary, Opts, Record).
+    Rules = json_rules(ModuleList),
+    Opts = json_opts(ModuleList),
+    from_json(Binary, Record, Rules, Opts).
 
 from_json(Binary, Rules, Opts) ->
     Decoded = jsx:decode(Binary),

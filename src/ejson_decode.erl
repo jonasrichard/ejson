@@ -28,6 +28,24 @@
 %% information about the target type (__rec or so).
 %% @end
 %%-----------------------------------------------------------------------------
+decode([H | _] = List, RecordName, Rules, Opts) when is_list(H) ->
+    R = lists:foldl(
+          fun(AttrList, Acc) when is_list(Acc) ->
+                  case decode1(AttrList, RecordName, Rules, Opts) of
+                      {error, _} = E ->
+                          E;
+                      Record ->
+                          [Record | Acc]
+                  end;
+             (_, {error, _} = E) ->
+                  E
+          end, [], List),
+    case R of
+        _ when is_list(R) ->
+            lists:reverse(R);
+        _ ->
+            R
+    end;
 decode(AttrList, RecordName, Rules, Opts) ->
     case decode1(AttrList, RecordName, Rules, Opts) of
         {error, _} = Error ->
