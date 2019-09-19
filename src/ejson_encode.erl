@@ -283,6 +283,8 @@ mixed_list_rule(AttrName, Value, Rules, Opts) when is_list(Value) ->
                   N;
              (B) when is_boolean(B) ->
                   B;
+             (L) when is_binary(L) ->
+                  L;
              (T) when is_tuple(T) ->
                   Rec = element(1, T),
                   case encode1(T, Rules, Opts) of
