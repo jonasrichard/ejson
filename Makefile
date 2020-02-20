@@ -4,7 +4,7 @@ PROJECT 	= ejson
 DEPS 		= jsx
 TEST_DEPS	= proper
 
-dep_jsx_commit 	= v2.8.2
+dep_jsx_commit 	= v2.9.0
 
 COMPILE_FIRST		= ejson_trans
 TEST_COMPILE_FIRST	= ejson_trans_test ejson_ext1 ejson_ext2 ejson_ext3
