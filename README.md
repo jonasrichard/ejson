@@ -279,7 +279,7 @@ Sometimes (especially in case of root records of a record hierarchy) it is comfo
 
 ```erlang
 %% Generate __rec field for books and cds
--json_otp({type_field, [book, cd]}).
+-json_opt({type_field, [book, cd]}).
 -json({book, {string, title}, {record, writer, [{type, author}]}}).
 -json({cd, {string, title}, {record, musician, [{type, author}]}}).
 -json({author, {string, name}}).
@@ -391,7 +391,7 @@ The modules are loaded by `code:load_file/1`, so depending modules need to be co
 
 ### Changes
 
-ejson is developer organically so new features were added as they were required and also old features were refined. Use the latest version if possible. 
+ejson is developer organically so new features were added as they were required and also old features were refined. Use the latest version if possible.
 
 ### Changelog from 0.1.x
 
