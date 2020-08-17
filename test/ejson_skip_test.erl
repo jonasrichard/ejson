@@ -17,6 +17,6 @@ skip_test_() ->
     [{"skip works during encoding",
       [?_assertEqual(<<"/index.html">>, json_prop(Json, "path")),
        ?_assertEqual(<<"GET">>, json_prop(Json, "method")),
-       ?_assertEqual(2, length(jsx:decode(Json)))]},
+       ?_assertEqual(2, length(jsx:decode(Json, [{return_maps, false}])))]},
      {"skip default during decoding",
       ?_assertMatch({request, "INFO", "/index.html", undefined, "GET"}, D)}].

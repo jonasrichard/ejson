@@ -100,14 +100,14 @@ from_json_modules(Binary, ModuleList, Record) ->
     from_json(Binary, Record, Rules, Opts).
 
 from_json(Binary, Rules, Opts) ->
-    Decoded = jsx:decode(Binary),
+    Decoded = jsx:decode(Binary, [{return_maps, false}]),
     %% We don't know what can be in the result, so detect it!
     %% It can be primitive value, primitive value list, or list of records
     %% or simple just a record.
     decode_value(Decoded, Rules, Opts).
 
 from_json(Binary, Record, Rules, Opts) ->
-    Decoded = jsx:decode(Binary),
+    Decoded = jsx:decode(Binary, [{return_maps, false}]),
     ejson_decode:decode(Decoded, Record, Rules, Opts).
 
 %%%----------------------------------------------------------------------------

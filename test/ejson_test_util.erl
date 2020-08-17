@@ -6,7 +6,7 @@
 
 -spec json_prop(binary(), string()) -> undefined | term().
 json_prop(Json, PropName) ->
-    jsx_prop(jsx:decode(Json), PropName).
+    jsx_prop(jsx:decode(Json, [{return_maps, false}]), PropName).
 
 -spec jsx_prop(jsx:term(), string()) -> undefined | term().
 jsx_prop(Jsx, PropName) ->
@@ -18,7 +18,7 @@ jsx_prop(Jsx, PropName) ->
     end.
 
 json_path(Json, Path) ->
-    jsx_path(jsx:decode(Json), Path).
+    jsx_path(jsx:decode(Json, [{return_maps, false}]), Path).
 
 %% Simplifies accessing data in jsx terms
 %%   - name             the value of the name field
